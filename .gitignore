@@ -1,2 +1,4 @@
 .coverage
 output_host_fns.grir
+output_host_fns.ll
+tests
