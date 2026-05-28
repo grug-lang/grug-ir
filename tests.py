@@ -76,11 +76,11 @@ def main():
     tests_opt_ll = str(out_dir / "tests_opt.ll")
     test_exe = str(out_dir / ("tests.exe" if sys.platform == "win32" else "tests"))
 
-    # Run c2grbc.py to yield the .grir TAC representation
-    run_step([sys.executable, "c2grbc.py", args.host_c, host_fns_grir])
+    # Run c2grir.py to yield the .grir TAC representation
+    run_step([sys.executable, "c2grir.py", args.host_c, host_fns_grir])
 
-    # Compile the .grir to .ll via grbc2ll.py
-    run_step([sys.executable, "grbc2ll.py", host_fns_grir, host_fns_ll])
+    # Compile the .grir to .ll via grir2ll.py
+    run_step([sys.executable, "grir2ll.py", host_fns_grir, host_fns_ll])
 
     # Emit LLVM IR for the C tests (-O3 removes alloca boilerplate)
     run_step(
