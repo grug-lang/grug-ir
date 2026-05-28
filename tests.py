@@ -6,7 +6,7 @@ def run_step(cmd: list) -> None:
     cmd_str = " ".join(cmd)
     print(f"-> {cmd_str}")
     result = subprocess.run(cmd)
-    if result.returncode != 0:
+    if result.returncode != 0:  # pragma: no cover
         print(f"FAILED: {cmd_str}", file=sys.stderr)
         sys.exit(result.returncode)
 
