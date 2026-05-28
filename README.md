@@ -33,3 +33,48 @@ Here is the high-level plan for grug-lang/grug-ir, which can be split into small
   - `.grir` and `.grbc` _won't_ store `restrict` on pointers, as that was a hint to the _compiler_
 - Note that generics are just for the frontend to perform type-checking, so `List[number]` will be stored as a `u64` ID
 - Just like grug-for-python, all scripts in grug-ir must pass Python's [Black](https://github.com/psf/black) formatter, get 100% coverage with [coverage.py](https://github.com/coveragepy/coveragepy), have no dependencies, and support >= Python 3.7
+
+## grug IR example
+
+If we value human readability (infix notation) over simplicity (prefix notation) for `.grir`, this function from the grug readme's [example fibonacci program](https://github.com/grug-lang/grug/blob/main/README.md#example):
+```py
+local _fib_list(n: number) List[number] {
+    fib_list: List[number] = List()
+
+    memo: Dict[number, number] = Dict()
+
+    i: number = 0
+    while i < n {
+        fib_list.append(_fib(i, memo))
+        i = i + 1
+    }
+
+    return fib_list
+}
+```
+
+Will be compiled to this `.grir` file:
+```
+local_fn _fib_list
+param n number
+returns id
+local fib_list id
+local memo id
+local i number
+local t1 id
+fib_list = call List
+memo = call Dict
+i = 0
+L1:
+if i >= n goto L2
+arg i
+arg memo
+t1 = call _fib
+arg fib_list
+arg t1
+call List_append
+i = i + 1
+goto L1
+L2:
+ret fib_list
+```
