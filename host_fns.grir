@@ -1,0 +1,16 @@
+host_fn min
+param a number
+param b number
+returns number
+if a >= b goto L1
+ret a
+L1:
+ret b
+host_fn max
+param a number
+param b number
+returns number
+if a <= b goto L2
+ret a
+L2:
+ret b
