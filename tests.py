@@ -1,4 +1,5 @@
 import argparse
+import difflib
 import shutil
 import subprocess
 import sys
@@ -14,6 +15,31 @@ def run_step(cmd: list) -> None:
         sys.exit(result.returncode)
 
 
+def check_diff(out_path: str | Path, expected_path: str | Path) -> None:
+    out_file = Path(out_path)
+    exp_file = Path(expected_path)
+
+    if not exp_file.exists():
+        print(f"-> WARNING: Expected file {exp_file} not found. Skipping diff.")
+        return
+
+    out_lines = out_file.read_text(encoding="utf-8").splitlines(keepends=True)
+    exp_lines = exp_file.read_text(encoding="utf-8").splitlines(keepends=True)
+
+    if out_lines != exp_lines:
+        print(f"FAILED: Mismatch found for {out_file.name}", file=sys.stderr)
+        diff = difflib.unified_diff(
+            exp_lines,
+            out_lines,
+            fromfile=str(exp_file),
+            tofile=str(out_file),
+        )
+        sys.stdout.writelines(diff)
+        sys.exit(1)
+
+    print(f"-> OK: {out_file.name} matches {exp_file.name}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run the compiler test pipeline.")
     parser.add_argument(
@@ -26,9 +52,16 @@ def main():
         type=Path,
         help="Directory for all generated artifacts",
     )
+    parser.add_argument(
+        "--expected-dir",
+        default="expected",
+        type=Path,
+        help="Directory containing expected artifacts to diff against",
+    )
     args = parser.parse_args()
 
     out_dir = args.out_dir
+    expected_dir = args.expected_dir
 
     # Clean slate: remove deep if exists, then recreate
     if out_dir.exists():
@@ -43,13 +76,13 @@ def main():
     tests_opt_ll = str(out_dir / "tests_opt.ll")
     test_exe = str(out_dir / ("tests.exe" if sys.platform == "win32" else "tests"))
 
-    # Step 1: Run c2grbc.py to yield the .grir TAC representation
+    # Run c2grbc.py to yield the .grir TAC representation
     run_step([sys.executable, "c2grbc.py", args.host_c, host_fns_grir])
 
-    # Step 2: Compile the .grir to .ll via grbc2ll.py
+    # Compile the .grir to .ll via grbc2ll.py
     run_step([sys.executable, "grbc2ll.py", host_fns_grir, host_fns_ll])
 
-    # Step 3: Emit LLVM IR for the C tests (-O3 removes alloca boilerplate)
+    # Emit LLVM IR for the C tests (-O3 removes alloca boilerplate)
     run_step(
         [
             "clang",
@@ -62,7 +95,7 @@ def main():
         ]
     )
 
-    # Step 4: Link the host functions and the tests into a single unoptimized IR module
+    # Link the host functions and the tests into a single unoptimized IR module
     run_step(
         [
             "llvm-link",
@@ -74,16 +107,24 @@ def main():
         ]
     )
 
-    # Step 5: Run the LLVM optimizer on the linked IR.
+    # Run the LLVM optimizer on the linked IR.
     run_step(["opt", "-S", "-O3", tests_unopt_ll, "-o", tests_opt_ll])
 
-    # Step 6: Compile the optimized LLVM IR into the final executable
+    # Compile the optimized LLVM IR into the final executable
     run_step(["clang", tests_opt_ll, "-o", test_exe])
 
-    # Step 7: Execute the test binary
+    # Execute the test binary
     run_step([f"./{test_exe}" if sys.platform != "win32" else test_exe])
 
-    print("\nAll pipeline steps completed successfully.")
+    # Verify generated artifacts against expected
+    print("\nVerifying outputs...")
+    check_diff(host_fns_grir, expected_dir / "host_fns.grir")
+    check_diff(host_fns_ll, expected_dir / "host_fns.ll")
+    check_diff(tests_unlinked_ll, expected_dir / "tests_unlinked.ll")
+    check_diff(tests_unopt_ll, expected_dir / "tests_unopt.ll")
+    check_diff(tests_opt_ll, expected_dir / "tests_opt.ll")
+
+    print("\nAll pipeline steps and diff checks completed successfully.")
 
 
 if __name__ == "__main__":
