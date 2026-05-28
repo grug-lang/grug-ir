@@ -78,3 +78,23 @@ goto L1
 L2:
 ret fib_list
 ```
+
+## Running `c2grbc.py`
+
+1. Run `pip install pycparser==2.22`
+2. Run `python c2grbc.py`
+
+## Pre-commit hooks (recommended)
+
+### Install pre-commit
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+### Run manually
+
+```bash
+pre-commit run --all-files
+```

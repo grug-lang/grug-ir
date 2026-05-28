@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compile C host functions to grug IR (.grir)."""
 
-from pycparser import c_ast, parse_file
+from pycparser import c_ast, parse_file  # pyright: ignore[reportMissingImports]
 
 C_TYPE_TO_GRIR = {
     "double": "number",
