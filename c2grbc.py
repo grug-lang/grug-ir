@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Compile C host functions to grug IR (.grir)."""
 
+import argparse
+
 from pycparser import c_ast, parse_file  # pyright: ignore[reportMissingImports]
 
 C_TYPE_TO_GRIR = {
@@ -106,10 +108,17 @@ class GrirGenerator:
 
 
 def main():
-    ast = parse_file("host_fns.c", use_cpp=False)
+    parser = argparse.ArgumentParser(
+        description="Compile C host functions to grug IR (.grir)."
+    )
+    parser.add_argument("input", help="Path to the input C file (e.g., host_fns.c)")
+    parser.add_argument("output", help="Path for the output .grir file")
+    args = parser.parse_args()
+
+    ast = parse_file(args.input, use_cpp=False)
     generator = GrirGenerator()
     grir = generator.generate(ast)
-    with open("output_host_fns.grir", "w") as f:
+    with open(args.output, "w") as f:
         f.write(grir)
 
 

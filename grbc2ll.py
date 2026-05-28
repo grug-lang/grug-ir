@@ -1,3 +1,4 @@
+import argparse
 import sys
 from pathlib import Path
 
@@ -106,17 +107,19 @@ def compile_grir_to_ll(grir_text: str) -> str:
 
 
 def main():
-    input_file = Path("output_host_fns.grir")
-    output_file = Path("output_host_fns.ll")
+    parser = argparse.ArgumentParser(description="Compile .grir representation to .ll")
+    parser.add_argument("input", type=Path, help="Path to the input .grir file")
+    parser.add_argument("output", type=Path, help="Path for the output .ll file")
+    args = parser.parse_args()
 
-    if not input_file.exists():
-        print(f"Error: {input_file} not found.", file=sys.stderr)
+    if not args.input.exists():
+        print(f"Error: {args.input} not found.", file=sys.stderr)
         sys.exit(1)
 
-    grir_text = input_file.read_text(encoding="utf-8")
+    grir_text = args.input.read_text(encoding="utf-8")
     ll_text = compile_grir_to_ll(grir_text)
-    output_file.write_text(ll_text, encoding="utf-8")
-    print(f"Successfully compiled {input_file.name} -> {output_file.name}")
+    args.output.write_text(ll_text, encoding="utf-8")
+    print(f"Successfully compiled {args.input.name} -> {args.output.name}")
 
 
 if __name__ == "__main__":

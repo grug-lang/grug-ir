@@ -1,5 +1,8 @@
+import argparse
+import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 
 def run_step(cmd: list) -> None:
@@ -12,37 +15,73 @@ def run_step(cmd: list) -> None:
 
 
 def main():
-    # Step 1: Run the (currently stubbed) c2grbc.py to yield output_host_fns.grir
-    run_step([sys.executable, "c2grbc.py"])
+    parser = argparse.ArgumentParser(description="Run the compiler test pipeline.")
+    parser.add_argument(
+        "--host-c", default="host_fns.c", help="Path to the C host functions file"
+    )
+    parser.add_argument("--test-c", default="tests.c", help="Path to the C test file")
+    parser.add_argument(
+        "--out-dir",
+        default=".output",
+        type=Path,
+        help="Directory for all generated artifacts",
+    )
+    args = parser.parse_args()
 
-    # Step 2: Compile the .grir TAC representation to .ll via grbc2ll.py
-    run_step([sys.executable, "grbc2ll.py"])
+    out_dir = args.out_dir
+
+    # Clean slate: remove deep if exists, then recreate
+    if out_dir.exists():
+        shutil.rmtree(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Define output file paths
+    host_fns_grir = str(out_dir / "host_fns.grir")
+    host_fns_ll = str(out_dir / "host_fns.ll")
+    tests_unlinked_ll = str(out_dir / "tests_unlinked.ll")
+    tests_unopt_ll = str(out_dir / "tests_unopt.ll")
+    tests_opt_ll = str(out_dir / "tests_opt.ll")
+    test_exe = str(out_dir / ("tests.exe" if sys.platform == "win32" else "tests"))
+
+    # Step 1: Run c2grbc.py to yield the .grir TAC representation
+    run_step([sys.executable, "c2grbc.py", args.host_c, host_fns_grir])
+
+    # Step 2: Compile the .grir to .ll via grbc2ll.py
+    run_step([sys.executable, "grbc2ll.py", host_fns_grir, host_fns_ll])
 
     # Step 3: Emit LLVM IR for the C tests (-O3 removes alloca boilerplate)
-    run_step(["clang", "-O3", "-S", "-emit-llvm", "tests.c", "-o", "output_tests_unlinked.ll"])
+    run_step(
+        [
+            "clang",
+            "-O3",
+            "-S",
+            "-emit-llvm",
+            args.test_c,
+            "-o",
+            tests_unlinked_ll,
+        ]
+    )
 
     # Step 4: Link the host functions and the tests into a single unoptimized IR module
     run_step(
         [
             "llvm-link",
             "-S",
-            "output_host_fns.ll",
-            "output_tests_unlinked.ll",
+            host_fns_ll,
+            tests_unlinked_ll,
             "-o",
-            "output_tests_unopt.ll",
+            tests_unopt_ll,
         ]
     )
 
     # Step 5: Run the LLVM optimizer on the linked IR.
-    # This generates the optimal .ll file (output_tests_opt.ll) for your inspection.
-    run_step(["opt", "-S", "-O3", "output_tests_unopt.ll", "-o", "output_tests_opt.ll"])
+    run_step(["opt", "-S", "-O3", tests_unopt_ll, "-o", tests_opt_ll])
 
     # Step 6: Compile the optimized LLVM IR into the final executable
-    run_step(["clang", "output_tests_opt.ll", "-o", "tests"])
+    run_step(["clang", tests_opt_ll, "-o", test_exe])
 
     # Step 7: Execute the test binary
-    test_executable = "./tests" if sys.platform != "win32" else "tests.exe"
-    run_step([test_executable])
+    run_step([f"./{test_exe}" if sys.platform != "win32" else test_exe])
 
     print("\nAll pipeline steps completed successfully.")
 
