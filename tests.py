@@ -18,10 +18,29 @@ def main():
     # Step 2: Compile the .grir TAC representation to .ll via grbc2ll.py
     run_step([sys.executable, "grbc2ll.py"])
 
-    # Step 3: Compile and link the LLVM IR with the C test assertions
-    run_step(["clang", "output_host_fns.ll", "tests.c", "-o", "tests"])
+    # Step 3: Emit LLVM IR for the C tests (-O3 removes alloca boilerplate)
+    run_step(["clang", "-O3", "-S", "-emit-llvm", "tests.c", "-o", "output_tests_unlinked.ll"])
 
-    # Step 4: Execute the test binary
+    # Step 4: Link the host functions and the tests into a single unoptimized IR module
+    run_step(
+        [
+            "llvm-link",
+            "-S",
+            "output_host_fns.ll",
+            "output_tests_unlinked.ll",
+            "-o",
+            "output_tests_unopt.ll",
+        ]
+    )
+
+    # Step 5: Run the LLVM optimizer on the linked IR.
+    # This generates the optimal .ll file (output_tests_opt.ll) for your inspection.
+    run_step(["opt", "-S", "-O3", "output_tests_unopt.ll", "-o", "output_tests_opt.ll"])
+
+    # Step 6: Compile the optimized LLVM IR into the final executable
+    run_step(["clang", "output_tests_opt.ll", "-o", "tests"])
+
+    # Step 7: Execute the test binary
     test_executable = "./tests" if sys.platform != "win32" else "tests.exe"
     run_step([test_executable])
 

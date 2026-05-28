@@ -1,4 +1,7 @@
 .coverage
 output_host_fns.grir
 output_host_fns.ll
+output_tests_unopt.ll
+output_tests_unlinked.ll
+output_tests_opt.ll
 tests
