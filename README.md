@@ -32,7 +32,7 @@ Here is the high-level plan for grug-lang/grug-ir, which can be split into small
   - `.grir` and `.grbc` may store `align` as an optimization hint that grug implementations are free to ignore
   - `.grir` and `.grbc` _won't_ store `restrict` on pointers, as that was a hint to the _compiler_
 - Note that generics are just for the frontend to perform type-checking, so `List[number]` will be stored as a `u64` ID
-- Just like grug-for-python, all scripts in grug-ir must pass Python's [Black](https://github.com/psf/black) formatter, get 100% coverage with [coverage.py](https://github.com/coveragepy/coveragepy), have no dependencies, and support >= Python 3.7
+- Just like grug-for-python, all scripts in grug-ir must pass Python's [Black](https://github.com/psf/black) formatter, pass all [pyright](https://github.com/microsoft/pyright) type checks, keep 100% coverage with [coverage.py](https://github.com/coveragepy/coveragepy), have no dependencies, and support >= Python 3.7
 
 ## grug IR example
 
