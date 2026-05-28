@@ -79,10 +79,11 @@ L2:
 ret fib_list
 ```
 
-## Running `c2grbc.py`
+## Running `tests.py`
 
+This will require you to have Clang installed:
 1. Run `pip install pycparser==2.22`
-2. Run `python c2grbc.py`
+2. Run `python tests.py`
 
 ## Pre-commit hooks (recommended)
 
