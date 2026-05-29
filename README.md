@@ -5,6 +5,7 @@ This [grug](https://github.com/grug-lang/grug) repository demonstrates:
 2. How simple host functions in any language can be compiled to grug IR *ahead of time* and then transpiled to LLVM IR *at runtime*. Inlinable host functions let FFI overhead vanish, which is a massive edge over other modding languages.
 
 ```mermaid
+%%{init: {'themeVariables': {'edgeLabelBackground': 'transparent'}}}%%
 graph TD
     classDef source fill:#bfdbfe,stroke:#60a5fa,color:#1e3a8a
     classDef grir   fill:#ddd6fe,stroke:#a78bfa,color:#4c1d95
