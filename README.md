@@ -6,11 +6,10 @@ This [grug](https://github.com/grug-lang/grug) repository demonstrates:
 
 ```mermaid
 graph TD
-    classDef source fill:#60a5fa,stroke:#2563eb,color:#fff
-    classDef grir   fill:#c084fc,stroke:#9333ea,color:#1f2937
-    classDef llir   fill:#fbbf24,stroke:#d97706,color:#1f2937
-    classDef binary fill:#34d399,stroke:#059669,color:#1f2937
-
+    classDef source fill:#bfdbfe,stroke:#60a5fa,color:#1e3a8a
+    classDef grir   fill:#ddd6fe,stroke:#a78bfa,color:#4c1d95
+    classDef llir   fill:#fde68a,stroke:#fbbf24,color:#92400e
+    classDef binary fill:#bbf7d0,stroke:#4ade80,color:#166534
     subgraph rt[runtime]
         H[creeper.grug]:::source -->|compile| I[creeper.grir]:::grir
         I -->|grir2ll.py| J[creeper.ll]:::llir
@@ -24,10 +23,9 @@ graph TD
     end
     H ~~~ A
     C & J -->|runtime| G
-
-    style aot fill:#dbeafe,stroke:#3b82f6,color:#1e3a8a
-    style ct  fill:#dcfce7,stroke:#22c55e,color:#14532d
-    style rt  fill:#fef3c7,stroke:#f59e0b,color:#78350f
+    style aot fill:#eff6ff,stroke:#93c5fd,color:#1e3a8a
+    style rt  fill:#faf5ff,stroke:#c4b5fd,color:#4c1d95
+    style ct  fill:#f0fdf4,stroke:#86efac,color:#166534
 ```
 
 ## Simple grug IR example
