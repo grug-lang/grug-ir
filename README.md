@@ -2,7 +2,7 @@
 
 This [grug](https://github.com/grug-lang/grug) repository demonstrates:
 1. How grug can be compiled to grug IR, and how that can easily be transpiled to LLVM IR.
-2. How simple host functions in any language can be compiled to grug IR followed by LLVM IR *ahead of time*. That LLVM IR is loaded *at runtime*. This makes host functions inlinable when compiling grug files, which gives grug a massive performance edge over lots of other languages that can't get rid of FFI overhead from constant host↔mod context switching.
+2. How simple host functions in any language can be compiled to grug IR followed by LLVM IR *ahead of time*. That LLVM IR is loaded *at runtime*. This makes host functions inlinable intrinsics when compiling grug files, which gives grug a massive performance edge over lots of other languages that can't get rid of FFI overhead from constant host↔mod context switching.
 
 ```mermaid
 %%{init: {'themeVariables': {'edgeLabelBackground': 'transparent'}}}%%
