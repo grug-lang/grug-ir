@@ -2,7 +2,7 @@
 
 This [grug](https://github.com/grug-lang/grug) repository demonstrates:
 1. How grug can be compiled to grug IR, and how that can easily be transpiled to LLVM IR.
-2. How simple host functions in any language can be compiled to grug IR and then transpiled to LLVM IR, which allows FFI overhead to completely vanish.
+2. How simple host functions in any language can be compiled to grug IR *ahead of time* and then transpiled to LLVM IR *at runtime*. This lets FFI overhead completely vanish by allowing host function calls to be inlined.
 
 ```mermaid
 graph TD
