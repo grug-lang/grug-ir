@@ -6,11 +6,28 @@ This [grug](https://github.com/grug-lang/grug) repository demonstrates:
 
 ```mermaid
 graph TD
-    A[host_fns.c] -->|c2grir.py| B[host_fns.grir]
-    B -->|grir2ll.py| C[host_fns.ll]
-    C & D[tests.c] -->|clang LTO| E[tests.bc]
-    E -->|disassemble| F[tests.ll]
-    F -->|compile| G[tests.exe]
+    classDef source fill:#60a5fa,stroke:#2563eb,color:#fff
+    classDef grir   fill:#c084fc,stroke:#9333ea,color:#1f2937
+    classDef llir   fill:#fbbf24,stroke:#d97706,color:#1f2937
+    classDef binary fill:#34d399,stroke:#059669,color:#1f2937
+
+    subgraph rt[runtime]
+        H[creeper.grug]:::source -->|compile| I[creeper.grir]:::grir
+        I -->|grir2ll.py| J[creeper.ll]:::llir
+    end
+    subgraph aot[ahead-of-time]
+        A[host_fns.c]:::source -->|c2grir.py| B[host_fns.grir]:::grir
+        B -->|grir2ll.py| C[host_fns.ll]:::llir
+    end
+    subgraph ct[compile-time]
+        D[main.c]:::source -->|compile| G[main.exe]:::binary
+    end
+    H ~~~ A
+    C & J -->|runtime| G
+
+    style aot fill:#dbeafe,stroke:#3b82f6,color:#1e3a8a
+    style ct  fill:#dcfce7,stroke:#22c55e,color:#14532d
+    style rt  fill:#fef3c7,stroke:#f59e0b,color:#78350f
 ```
 
 ## Simple grug IR example
