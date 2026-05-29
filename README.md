@@ -1,9 +1,8 @@
 # grug IR
 
-This [grug](https://github.com/grug-lang/grug) repository demonstrates how:
-1. grug can be easily transpiled to LLVM IR via grug IR.
-2. How host function FFI overhead which plagues games can be almost completely avoided.
-    - The trick is to let developers write host fns in a subset of C (or any language really) that is easy to transpile to grug IR.
+This [grug](https://github.com/grug-lang/grug) repository demonstrates:
+1. How grug can be compiled to grug IR, and how that can easily be transpiled to LLVM IR.
+2. How simple host functions in any language can be compiled to grug IR and then transpiled to LLVM IR, which allows FFI overhead to completely vanish.
 
 ```mermaid
 graph TD
