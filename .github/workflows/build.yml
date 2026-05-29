@@ -24,10 +24,15 @@ jobs:
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
+          # The script sets up the repository
           sudo ./llvm.sh 22
-          sudo apt-get install -y clang-22
-          # Update symlinks so 'clang' points to clang-22
+
+          # Install clang and the tools package containing FileCheck
+          sudo apt-get install -y clang-22 llvm-22-tools
+
+          # Update symlinks for clang and FileCheck
           sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-22 100
+          sudo ln -s /usr/bin/FileCheck-22 /usr/bin/FileCheck
 
       - name: Install pyenv and build dependencies
         run: |
