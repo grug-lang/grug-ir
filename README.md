@@ -61,7 +61,7 @@ ret fib_list
 
 ## Running `tests.py`
 
-This will require you to have Clang installed:
+This will require you to have Clang and Clang's [FileCheck](https://llvm.org/docs/CommandGuide/FileCheck.html) installed:
 1. Run `pip install pycparser==2.22`
 2. Run `python tests.py`
 

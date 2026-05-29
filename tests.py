@@ -39,6 +39,28 @@ def check_diff(out_path: str | Path, expected_path: str | Path) -> None:
     print(f"-> OK: {out_file.name} matches {exp_file.name}")
 
 
+def run_filecheck(actual_path: Path, expected_path: Path) -> None:
+    """Verifies actual_path using FileCheck directives found in expected_path."""
+    if not shutil.which("FileCheck"):
+        sys.exit("-> FAILED: 'FileCheck' not found in PATH. Please install LLVM tools.")
+
+    cmd = ["FileCheck", str(expected_path), "--input-file", str(actual_path)]
+
+    print(f"-> Running FileCheck on {actual_path.name}")
+    result = subprocess.run(cmd, capture_output=True, text=True)
+
+    if result.returncode != 0:
+        print(
+            f"-> FAILED: FileCheck verification failed for {actual_path.name}",
+            file=sys.stderr,
+        )
+        print(result.stdout, file=sys.stderr)
+        print(result.stderr, file=sys.stderr)
+        sys.exit(1)
+
+    print(f"-> OK: {actual_path.name} passed FileCheck verification")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run the compiler test pipeline.")
     parser.add_argument(
@@ -71,7 +93,7 @@ def main():
     host_fns_grir = str(out_dir / "host_fns.grir")
     host_fns_ll = str(out_dir / "host_fns.ll")
     tests_ll = str(out_dir / "tests.ll")
-    tests_bc = str(out_dir / "tests.bc")  # Temporary binary bitcode
+    tests_bc = str(out_dir / "tests.bc")
     test_exe = str(out_dir / ("tests.exe" if sys.platform == "win32" else "tests"))
 
     # 1. Run c2grir.py to yield the .grir TAC representation
@@ -106,11 +128,15 @@ def main():
 
     # 7. Verify outputs
     print("\nVerifying outputs...")
+
+    # Use strict diff for grug's stable IR
     check_diff(host_fns_grir, expected_dir / "host_fns.grir")
     check_diff(host_fns_ll, expected_dir / "host_fns.ll")
-    check_diff(tests_ll, expected_dir / "tests.ll")
 
-    print("\nAll pipeline steps and diff checks completed successfully.")
+    # Use FileCheck for Clang's unstable IR
+    run_filecheck(Path(tests_ll), expected_dir / "tests.ll")
+
+    print("\nAll pipeline steps and checks completed successfully.")
 
 
 if __name__ == "__main__":
