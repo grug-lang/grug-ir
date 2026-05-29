@@ -11,22 +11,21 @@ graph TD
     classDef grir   fill:#ddd6fe,stroke:#a78bfa,color:#4c1d95
     classDef llir   fill:#fde68a,stroke:#fbbf24,color:#92400e
     classDef binary fill:#bbf7d0,stroke:#4ade80,color:#166534
+
     subgraph rt[runtime]
         H[creeper.grug]:::source -->|compile| I[creeper.grir]:::grir
         I -->|grir2ll.py| J[creeper.ll]:::llir
     end
+
     subgraph aot[ahead-of-time]
         A[host_fns.c]:::source -->|c2grir.py| B[host_fns.grir]:::grir
         B -->|grir2ll.py| C[host_fns.ll]:::llir
     end
-    subgraph ct[compile-time]
-        D[main.c]:::source -->|compile| G[main.exe]:::binary
-    end
-    H ~~~ A
-    C & J -->|runtime| G
+
+    J & C -->|runtime| G[program]:::binary
+
     style aot fill:#eff6ff,stroke:#93c5fd,color:#1e3a8a
     style rt  fill:#faf5ff,stroke:#c4b5fd,color:#4c1d95
-    style ct  fill:#f0fdf4,stroke:#86efac,color:#166534
 ```
 
 ## Simple grug IR example
