@@ -7,20 +7,11 @@ This [grug](https://github.com/grug-lang/grug) repository demonstrates how:
 
 ```mermaid
 graph TD
-    A[host_fns.c] -->|c2grir.py| B[.output/host_fns.grir]
-    B -->|grir2ll.py| C[.output/host_fns.ll]
-
-    D[tests.c] -->|clang -O3 -S| E[.output/tests_unlinked.ll]
-
-    C --> F{llvm-link}
-    E --> F
-    F --> G[.output/tests_unopt.ll]
-
-    G -->|opt -O3| H[.output/tests_opt.ll]
-    H -->|clang| I[tests executable]
-
-    I --> J{Verify Diffs}
-    B & C & E & G & H --> J
+    A[host_fns.c] -->|c2grir.py| B[host_fns.grir]
+    B -->|grir2ll.py| C[host_fns.ll]
+    C & D[tests.c] -->|clang LTO| E[tests.bc]
+    E -->|disassemble| F[tests.ll]
+    F -->|compile| G[tests.exe]
 ```
 
 ## grug IR example
