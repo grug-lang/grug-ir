@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 
-// Declare the host functions generated from output_host_fns.ll
+// Declare the host functions
 extern double min(double a, double b);
 extern double max(double a, double b);
 

@@ -13,7 +13,109 @@ graph TD
     F -->|compile| G[tests.exe]
 ```
 
-## grug IR example
+## Simple grug IR example
+
+```
+tests/minmax
+├── expected
+│   ├── host_fns.grir
+│   ├── host_fns.ll
+│   └── tests.ll
+├── host_fns.c
+└── tests.c
+```
+
+`host_fns.c`:
+```c
+double min(double a, double b) {
+    return a < b ? a : b;
+}
+
+double max(double a, double b) {
+    return a > b ? a : b;
+}
+```
+
+`tests/minmax/expected/host_fns.grir`:
+```
+host_fn min
+param a number
+param b number
+returns number
+if a >= b goto L1
+ret a
+L1:
+ret b
+host_fn max
+param a number
+param b number
+returns number
+if a <= b goto L2
+ret a
+L2:
+ret b
+```
+
+`tests/minmax/expected/host_fns.ll`:
+```ll
+define double @min(double %a, double %b) {
+entry:
+  %cmp0 = fcmp oge double %a, %b
+  br i1 %cmp0, label %L1, label %fallthrough0
+
+fallthrough0:
+  ret double %a
+
+L1:
+  ret double %b
+}
+
+define double @max(double %a, double %b) {
+entry:
+  %cmp0 = fcmp ole double %a, %b
+  br i1 %cmp0, label %L2, label %fallthrough0
+
+fallthrough0:
+  ret double %a
+
+L2:
+  ret double %b
+}
+```
+
+`tests/minmax/expected/tests.ll`:
+```ll
+; CHECK-LABEL: define dso_local noundef i32 @main
+; CHECK-NEXT:  {{%[0-9]+}} = tail call i32 @puts(ptr nonnull dereferenceable(1) @str)
+; CHECK-NEXT:  ret i32 0
+; CHECK-NEXT: }
+```
+
+`tests.c`:
+```c
+#include <assert.h>
+#include <stdio.h>
+
+// Declare the host functions
+extern double min(double a, double b);
+extern double max(double a, double b);
+
+int main() {
+    // Test min()
+    assert(min(5.0, 10.0) == 5.0);
+    assert(min(10.0, 5.0) == 5.0);
+    assert(min(3.14, 3.14) == 3.14);
+
+    // Test max()
+    assert(max(5.0, 10.0) == 10.0);
+    assert(max(10.0, 5.0) == 10.0);
+    assert(max(3.14, 3.14) == 3.14);
+
+    printf("All host function assertions passed successfully!\n");
+}
+```
+
+## Complex grug IR example
 
 If we value human readability (infix notation) over simplicity (prefix notation) for `.grir`, this function from the grug readme's [example fibonacci program](https://github.com/grug-lang/grug/blob/main/README.md#example):
 ```py

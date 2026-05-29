@@ -1,4 +1,3 @@
-import argparse
 import difflib
 import shutil
 import subprocess
@@ -62,43 +61,32 @@ def run_filecheck(actual_path: Path, expected_path: Path) -> None:
     print(f"-> OK: {actual_path.name} passed FileCheck verification")
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Run the compiler test pipeline.")
-    parser.add_argument(
-        "--host-c", default="host_fns.c", help="Path to the C host functions file"
-    )
-    parser.add_argument("--test-c", default="tests.c", help="Path to the C test file")
-    parser.add_argument(
-        "--out-dir",
-        default=".output",
-        type=Path,
-        help="Directory for all generated artifacts",
-    )
-    parser.add_argument(
-        "--expected-dir",
-        default="expected",
-        type=Path,
-        help="Directory containing expected artifacts to diff against",
-    )
-    args = parser.parse_args()
+def run_test(test_dir: Path) -> None:
+    host_c = test_dir / "host_fns.c"
+    test_c = test_dir / "tests.c"
+    expected_dir = test_dir / "expected"
 
-    out_dir = args.out_dir
-    expected_dir = args.expected_dir
+    for required in (host_c, test_c, expected_dir):
+        if not required.exists():
+            sys.exit(f"-> FAILED: Required path not found: {required}")
 
-    # Clean slate
+    print(f"\n{'=' * 60}")
+    print(f"Running test: {test_dir.name}")
+    print(f"{'=' * 60}")
+
+    out_dir = test_dir / ".output"
     if out_dir.exists():
         shutil.rmtree(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Define output file paths
     host_fns_grir = str(out_dir / "host_fns.grir")
     host_fns_ll = str(out_dir / "host_fns.ll")
     tests_ll = str(out_dir / "tests.ll")
     tests_bc = str(out_dir / "tests.bc")
-    test_exe = str(out_dir / ("tests.exe" if sys.platform == "win32" else "tests"))
+    test_exe = str(out_dir / ("tests.exe" if sys.platform == "win32" else "tests.out"))
 
     # 1. Run c2grir.py to yield the .grir TAC representation
-    run_step([sys.executable, "c2grir.py", args.host_c, host_fns_grir])
+    run_step([sys.executable, "c2grir.py", str(host_c), host_fns_grir])
 
     # 2. Compile the .grir to .ll via grir2ll.py
     run_step([sys.executable, "grir2ll.py", host_fns_grir, host_fns_ll])
@@ -112,7 +100,7 @@ def main():
             "-flto",
             "-Wl,--plugin-opt=emit-llvm",
             host_fns_ll,
-            args.test_c,
+            str(test_c),
             "-o",
             tests_bc,
         ]
@@ -137,7 +125,24 @@ def main():
     # Use FileCheck for Clang's unstable IR
     run_filecheck(Path(tests_ll), expected_dir / "tests.ll")
 
-    print("\nAll pipeline steps and checks completed successfully.")
+    print(f"\nTest '{test_dir.name}' completed successfully.")
+
+
+def main() -> None:
+    tests_dir = Path("tests")
+
+    if not tests_dir.exists():
+        sys.exit(f"-> FAILED: Tests directory not found: {tests_dir}")
+
+    test_dirs = sorted(p for p in tests_dir.iterdir() if p.is_dir())
+
+    if not test_dirs:
+        sys.exit(f"-> FAILED: No test directories found in {tests_dir}")
+
+    for test_dir in test_dirs:
+        run_test(test_dir)
+
+    print("\nAll tests completed successfully.")
 
 
 if __name__ == "__main__":
