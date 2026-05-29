@@ -4,9 +4,10 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import List, Union
 
 
-def run_step(cmd: list) -> None:
+def run_step(cmd: List[str]) -> None:
     cmd_str = " ".join(cmd)
     print(f"-> {cmd_str}")
     result = subprocess.run(cmd)
@@ -15,7 +16,7 @@ def run_step(cmd: list) -> None:
         sys.exit(result.returncode)
 
 
-def check_diff(out_path: str | Path, expected_path: str | Path) -> None:
+def check_diff(out_path: Union[str, Path], expected_path: Union[str, Path]) -> None:
     out_file = Path(out_path)
     exp_file = Path(expected_path)
 
