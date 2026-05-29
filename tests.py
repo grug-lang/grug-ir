@@ -63,10 +63,10 @@ def run_filecheck(actual_path: Path, expected_path: Path) -> None:
 
 def run_test(test_dir: Path) -> None:
     host_c = test_dir / "host_fns.c"
-    test_c = test_dir / "tests.c"
+    main_c = test_dir / "main.c"
     expected_dir = test_dir / "expected"
 
-    for required in (host_c, test_c, expected_dir):
+    for required in (host_c, main_c, expected_dir):
         if not required.exists():
             sys.exit(f"-> FAILED: Required path not found: {required}")
 
@@ -83,7 +83,7 @@ def run_test(test_dir: Path) -> None:
     host_fns_ll = str(out_dir / "host_fns.ll")
     tests_ll = str(out_dir / "tests.ll")
     tests_bc = str(out_dir / "tests.bc")
-    test_exe = str(out_dir / ("tests.exe" if sys.platform == "win32" else "tests.out"))
+    test_exe = str(out_dir / ("main.exe" if sys.platform == "win32" else "main.out"))
 
     # 1. Run c2grir.py to yield the .grir TAC representation
     run_step([sys.executable, "c2grir.py", str(host_c), host_fns_grir])
@@ -100,7 +100,7 @@ def run_test(test_dir: Path) -> None:
             "-flto",
             "-Wl,--plugin-opt=emit-llvm",
             host_fns_ll,
-            str(test_c),
+            str(main_c),
             "-o",
             tests_bc,
         ]
@@ -112,7 +112,7 @@ def run_test(test_dir: Path) -> None:
     # 5. Compile final executable from the optimized .ll
     run_step(["clang", tests_ll, "-o", test_exe])
 
-    # 6. Execute tests
+    # 6. Execute program
     run_step([f"./{test_exe}" if sys.platform != "win32" else test_exe])
 
     # 7. Verify outputs

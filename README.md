@@ -23,7 +23,7 @@ tests/minmax
 │   ├── host_fns.ll
 │   └── tests.ll
 ├── host_fns.c
-└── tests.c
+└── main.c
 ```
 
 It proves that these host functions in `host_fns.c`:
@@ -37,7 +37,7 @@ double max(double a, double b) {
 }
 ```
 
-Which are tested using `assert()` calls in `tests.c`:
+Which are tested using `assert()` calls in `main.c`:
 ```c
 #include <assert.h>
 #include <stdio.h>
