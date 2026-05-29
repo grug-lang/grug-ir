@@ -20,6 +20,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install specific Clang version
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 22
+          sudo apt-get install -y clang-22
+          # Update symlinks so 'clang' points to clang-22
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-22 100
+
       - name: Install pyenv and build dependencies
         run: |
           sudo apt-get update
