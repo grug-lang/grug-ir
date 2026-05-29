@@ -15,6 +15,7 @@ graph TD
 
 ## Simple grug IR example
 
+Here is the layout of `tests/minmax/`:
 ```
 tests/minmax
 ├── expected
@@ -25,7 +26,7 @@ tests/minmax
 └── tests.c
 ```
 
-`host_fns.c`:
+It proves that these host functions in `host_fns.c`:
 ```c
 double min(double a, double b) {
     return a < b ? a : b;
@@ -36,7 +37,39 @@ double max(double a, double b) {
 }
 ```
 
-`tests/minmax/expected/host_fns.grir`:
+Which are tested using `assert()` calls in `tests.c`:
+```c
+#include <assert.h>
+#include <stdio.h>
+
+// Declare the host functions
+extern double min(double a, double b);
+extern double max(double a, double b);
+
+int main() {
+    // Test min()
+    assert(min(5.0, 10.0) == 5.0);
+    assert(min(10.0, 5.0) == 5.0);
+    assert(min(3.14, 3.14) == 3.14);
+
+    // Test max()
+    assert(max(5.0, 10.0) == 10.0);
+    assert(max(10.0, 5.0) == 10.0);
+    assert(max(3.14, 3.14) == 3.14);
+
+    printf("All host function assertions passed successfully!\n");
+}
+```
+
+Successfully get optimized away in `expected/tests.ll`, where only the `printf` (`puts`) and implicit `return 0;` remain:
+```ll
+; CHECK-LABEL: define dso_local noundef i32 @main
+; CHECK-NEXT:  {{%[0-9]+}} = tail call i32 @puts(ptr nonnull dereferenceable(1) @str)
+; CHECK-NEXT:  ret i32 0
+; CHECK-NEXT: }
+```
+
+Simple host functions can be written in any language; `c2grir.py` compiles `host_fns.c` to `expected/host_fns.grir`:
 ```
 host_fn min
 param a number
@@ -56,7 +89,7 @@ L2:
 ret b
 ```
 
-`tests/minmax/expected/host_fns.ll`:
+The script `grir2ll.py` turns it into the LLVM IR `expected/host_fns.ll`, but you can easily modify it to target other popular IRs:
 ```ll
 define double @min(double %a, double %b) {
 entry:
@@ -80,38 +113,6 @@ fallthrough0:
 
 L2:
   ret double %b
-}
-```
-
-`tests/minmax/expected/tests.ll`:
-```ll
-; CHECK-LABEL: define dso_local noundef i32 @main
-; CHECK-NEXT:  {{%[0-9]+}} = tail call i32 @puts(ptr nonnull dereferenceable(1) @str)
-; CHECK-NEXT:  ret i32 0
-; CHECK-NEXT: }
-```
-
-`tests.c`:
-```c
-#include <assert.h>
-#include <stdio.h>
-
-// Declare the host functions
-extern double min(double a, double b);
-extern double max(double a, double b);
-
-int main() {
-    // Test min()
-    assert(min(5.0, 10.0) == 5.0);
-    assert(min(10.0, 5.0) == 5.0);
-    assert(min(3.14, 3.14) == 3.14);
-
-    // Test max()
-    assert(max(5.0, 10.0) == 10.0);
-    assert(max(10.0, 5.0) == 10.0);
-    assert(max(3.14, 3.14) == 3.14);
-
-    printf("All host function assertions passed successfully!\n");
 }
 ```
 
