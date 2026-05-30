@@ -179,8 +179,8 @@ ret fib_list
 ## Running `tests.py`
 
 This will require you to have Clang and Clang's [FileCheck](https://llvm.org/docs/CommandGuide/FileCheck.html) installed:
-1. Run `pip install pycparser==2.22`
-2. Run `python tests.py`
+1. Run `pip install pycparser==2.21 coverage==7.2.7`
+2. Run `coverage run tests.py && coverage report -m --fail-under=100`
 
 ## Pre-commit hooks (recommended)
 
