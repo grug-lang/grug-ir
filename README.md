@@ -13,8 +13,8 @@ graph TD
     classDef binary fill:#bbf7d0,stroke:#4ade80,color:#166534
 
     subgraph rt[runtime]
-        H[creeper.grug]:::source -->|compile| I[creeper.grir]:::grir
-        I -->|grir2ll.py| J[creeper.ll]:::llir
+        H[creeper-Entity.grug]:::source -->|compile| I[creeper-Entity.grir]:::grir
+        I -->|grir2ll.py| J[creeper-Entity.ll]:::llir
     end
 
     subgraph aot[ahead-of-time]
