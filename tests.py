@@ -1,16 +1,15 @@
 import difflib
-import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import List, Union
 
 
-def run_step(cmd: List[str], env: Optional[Dict[str, str]] = None) -> None:
+def run_step(cmd: List[str]):
     cmd_str = " ".join(cmd)
     print(f"-> {cmd_str}")
-    result = subprocess.run(cmd, env=env)
+    result = subprocess.run(cmd)
     if result.returncode != 0:
         print(f"-> FAILED: {cmd_str}", file=sys.stderr)
         sys.exit(result.returncode)
@@ -79,14 +78,11 @@ def run_test(test_dir: Path) -> None:
     tests_bc = str(out_dir / "tests.bc")
     test_exe = str(out_dir / ("main.exe" if sys.platform == "win32" else "main.out"))
 
-    env = os.environ.copy()
-    env["COVERAGE_PROCESS_START"] = ".coveragerc"
-
     # 1. Run c2grir.py to yield the .grir TAC representation
-    run_step(["coverage", "run", "--append", "c2grir.py", str(host_c), host_fns_grir], env=env)
+    run_step(["coverage", "run", "--append", "c2grir.py", str(host_c), host_fns_grir])
 
     # 2. Compile the .grir to .ll via grir2ll.py
-    run_step(["coverage", "run", "--append", "grir2ll.py", host_fns_grir, host_fns_ll], env=env)
+    run_step(["coverage", "run", "--append", "grir2ll.py", host_fns_grir, host_fns_ll])
 
     # 3. Optimized LTO Link: Generate binary bitcode (.bc)
     run_step(
