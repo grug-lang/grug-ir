@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-"""Compile C host functions to grug IR (.grir)."""
-
 import argparse
 
 from pycparser import c_ast, parse_file  # pyright: ignore[reportMissingImports]

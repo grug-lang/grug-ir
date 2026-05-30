@@ -11,7 +11,7 @@ def run_step(cmd: List[str], env: Optional[Dict[str, str]] = None) -> None:
     cmd_str = " ".join(cmd)
     print(f"-> {cmd_str}")
     result = subprocess.run(cmd, env=env)
-    if result.returncode != 0:  # pragma: no cover
+    if result.returncode != 0:
         print(f"-> FAILED: {cmd_str}", file=sys.stderr)
         sys.exit(result.returncode)
 
@@ -23,7 +23,7 @@ def check_diff(out_path: Union[str, Path], expected_path: Union[str, Path]) -> N
     out_lines = out_file.read_text(encoding="utf-8").splitlines(keepends=True)
     exp_lines = exp_file.read_text(encoding="utf-8").splitlines(keepends=True)
 
-    if out_lines != exp_lines:  # pragma: no cover
+    if out_lines != exp_lines:
         print(f"-> FAILED: Mismatch found for {out_file.name}", file=sys.stderr)
         diff = difflib.unified_diff(
             exp_lines,
@@ -39,7 +39,7 @@ def check_diff(out_path: Union[str, Path], expected_path: Union[str, Path]) -> N
 
 def run_filecheck(actual_path: Path, expected_path: Path) -> None:
     """Verifies actual_path using FileCheck directives found in expected_path."""
-    if not shutil.which("FileCheck"):  # pragma: no cover
+    if not shutil.which("FileCheck"):
         sys.exit("-> FAILED: 'FileCheck' not found in PATH. Please install LLVM tools.")
 
     cmd = ["FileCheck", str(expected_path), "--input-file", str(actual_path)]
@@ -47,7 +47,7 @@ def run_filecheck(actual_path: Path, expected_path: Path) -> None:
     print(f"-> Running FileCheck on {actual_path.name}")
     result = subprocess.run(cmd, capture_output=True, text=True)
 
-    if result.returncode != 0:  # pragma: no cover
+    if result.returncode != 0:
         print(
             f"-> FAILED: FileCheck verification failed for {actual_path.name}",
             file=sys.stderr,
@@ -83,10 +83,10 @@ def run_test(test_dir: Path) -> None:
     env["COVERAGE_PROCESS_START"] = ".coveragerc"
 
     # 1. Run c2grir.py to yield the .grir TAC representation
-    run_step([sys.executable, "c2grir.py", str(host_c), host_fns_grir], env=env)
+    run_step(["coverage", "run", "--append", "c2grir.py", str(host_c), host_fns_grir], env=env)
 
     # 2. Compile the .grir to .ll via grir2ll.py
-    run_step([sys.executable, "grir2ll.py", host_fns_grir, host_fns_ll], env=env)
+    run_step(["coverage", "run", "--append", "grir2ll.py", host_fns_grir, host_fns_ll], env=env)
 
     # 3. Optimized LTO Link: Generate binary bitcode (.bc)
     run_step(
