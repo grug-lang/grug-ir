@@ -34,6 +34,14 @@ jobs:
           sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-22 100
           sudo ln -s /usr/bin/FileCheck-22 /usr/bin/FileCheck
 
+      # TODO: REMOVE!
+      - name: Print clang version
+        run: clang --version
+
+      # TODO: REMOVE!
+      - name: Print linker version
+        run: ld.lld --version
+
       - name: Install pyenv and build dependencies
         run: |
           sudo apt-get update
