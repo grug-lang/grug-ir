@@ -88,7 +88,7 @@ class GrirGenerator:
             self._emit_ternary_return(ret.expr)
         else:
             self.lines.append(
-                f"ret {expr_to_str(ret.expr)}"
+                f"return {expr_to_str(ret.expr)}"
             )  # pragma: no cover # TODO: Remove pragma, since non-ternaries reach this
 
     def _emit_ternary_return(self, ternary):
@@ -104,9 +104,9 @@ class GrirGenerator:
         left = expr_to_str(cond.left)
         right = expr_to_str(cond.right)
         self.lines.append(f"if {left} {inv_op} {right} goto {label}")
-        self.lines.append(f"ret {expr_to_str(ternary.iftrue)}")
+        self.lines.append(f"return {expr_to_str(ternary.iftrue)}")
         self.lines.append(f"{label}:")
-        self.lines.append(f"ret {expr_to_str(ternary.iffalse)}")
+        self.lines.append(f"return {expr_to_str(ternary.iffalse)}")
 
 
 def main():

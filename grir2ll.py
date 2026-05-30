@@ -55,7 +55,7 @@ def compile_grir_to_ll(grir_text: str) -> str:
             if in_func:
                 # Close out previous function safely
                 last_line: str = ll_lines[-1].strip() if ll_lines else ""
-                if ret_type == "void" and not last_line.startswith(("ret", "br")):
+                if ret_type == "void" and not last_line.startswith(("return", "br")):
                     ll_lines.append("  ret void")
                 ll_lines.append("}\n")
 
@@ -191,7 +191,7 @@ def compile_grir_to_ll(grir_text: str) -> str:
             )
             ll_lines.append(f"\n{fallthrough_label}:")
 
-        elif cmd == "ret":
+        elif cmd == "return":
             op = parts[1]
             ty, val = get_val(op)
             ll_lines.append(f"  ret {ret_type} {val}")
@@ -203,7 +203,7 @@ def compile_grir_to_ll(grir_text: str) -> str:
 
     if in_func:
         last_line = ll_lines[-1].strip() if ll_lines else ""
-        if ret_type == "void" and not last_line.startswith(("ret", "br")):
+        if ret_type == "void" and not last_line.startswith(("return", "br")):
             ll_lines.append("  ret void")
         ll_lines.append("}\n")
 

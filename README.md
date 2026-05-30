@@ -91,17 +91,17 @@ param a number
 param b number
 returns number
 if a >= b goto L1
-ret a
+return a
 L1:
-ret b
+return b
 host_fn max
 param a number
 param b number
 returns number
 if a <= b goto L2
-ret a
+return a
 L2:
-ret b
+return b
 ```
 
 The script `grir2ll.py` turns it into the LLVM IR `expected/host_fns.ll`, but you can easily modify it to target other popular IRs:
@@ -173,7 +173,7 @@ call List_append
 i = i + 1
 goto L1
 L2:
-ret fib_list
+return fib_list
 ```
 
 ## Running `tests.py`
