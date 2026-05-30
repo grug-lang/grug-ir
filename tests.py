@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List, Union
 
 
-def run_step(cmd: List[str]):
+def run_step(cmd: List[str]) -> None:
     cmd_str = " ".join(cmd)
     print(f"-> {cmd_str}")
     result = subprocess.run(cmd)
@@ -72,19 +72,33 @@ def run_test(test_dir: Path) -> None:
         shutil.rmtree(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    # Input/Output paths
     host_fns_grir = str(out_dir / "host_fns.grir")
     host_fns_ll = str(out_dir / "host_fns.ll")
+
+    creeper_grug = str(test_dir / "creeper-Entity.grug")
+    creeper_grir = str(out_dir / "creeper-Entity.grir")  # Now pointing to .output
+    creeper_ll = str(out_dir / "creeper-Entity.ll")
+
     tests_ll = str(out_dir / "tests.ll")
     tests_bc = str(out_dir / "tests.bc")
     test_exe = str(out_dir / ("main.exe" if sys.platform == "win32" else "main.out"))
 
-    # 1. Run c2grir.py to yield the .grir TAC representation
+    # 1. Run c2grir.py to yield the .grir TAC representation for host functions
     run_step(["coverage", "run", "--append", "c2grir.py", str(host_c), host_fns_grir])
 
-    # 2. Compile the .grir to .ll via grir2ll.py
+    # 2. Compile host_fns.grir to .ll via grir2ll.py
     run_step(["coverage", "run", "--append", "grir2ll.py", host_fns_grir, host_fns_ll])
 
-    # 3. Optimized LTO Link: Generate binary bitcode (.bc)
+    # 3. Compile the creeper-Entity.grug file to .grir via compile_grug.py
+    run_step(
+        ["coverage", "run", "--append", "compile_grug.py", creeper_grug, creeper_grir]
+    )
+
+    # 4. Compile the generated creeper-Entity.grir to .ll via grir2ll.py
+    run_step(["coverage", "run", "--append", "grir2ll.py", creeper_grir, creeper_ll])
+
+    # 5. Optimized LTO Link: Generate binary bitcode (.bc)
     run_step(
         [
             "clang",
@@ -93,30 +107,33 @@ def run_test(test_dir: Path) -> None:
             "-flto",
             "-Wl,--plugin-opt=emit-llvm",
             host_fns_ll,
+            creeper_ll,
             str(main_c),
             "-o",
             tests_bc,
         ]
     )
 
-    # 4. Disassemble binary bitcode to text IR (.ll) using clang
+    # 6. Disassemble binary bitcode to text IR (.ll) using clang
     run_step(["clang", "-x", "ir", tests_bc, "-S", "-emit-llvm", "-o", tests_ll])
 
-    # 5. Compile final executable from the optimized .ll
+    # 7. Compile final executable from the optimized .ll
     run_step(["clang", tests_ll, "-o", test_exe])
 
-    # 6. Execute program
+    # 8. Execute program
     run_step([f"./{test_exe}" if sys.platform != "win32" else test_exe])
 
-    # 7. Verify outputs
+    # 9. Verify outputs
     print("\nVerifying outputs...")
 
-    # Use strict diff for grug's stable IR
+    # Use strict diff for stable IRs
     check_diff(host_fns_grir, expected_dir / "host_fns.grir")
     check_diff(host_fns_ll, expected_dir / "host_fns.ll")
+    check_diff(creeper_grir, expected_dir / "creeper-Entity.grir")
 
-    # Use FileCheck for Clang's unstable IR
+    # Use FileCheck for Clang's unstable IR and the grug frontend output
     run_filecheck(Path(tests_ll), expected_dir / "tests.ll")
+    run_filecheck(Path(creeper_ll), expected_dir / "creeper-Entity.ll")
 
     print(f"\nTest '{test_dir.name}' completed successfully.")
 

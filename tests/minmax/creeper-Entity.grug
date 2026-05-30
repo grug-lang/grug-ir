@@ -1,0 +1,3 @@
+export tick() {
+    print_number(min(4, 2))
+}

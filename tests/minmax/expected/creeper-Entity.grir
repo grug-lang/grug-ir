@@ -1,0 +1,7 @@
+export_fn tick
+local t1 number
+arg 4
+arg 2
+t1 = call min
+arg t1
+call print_number
