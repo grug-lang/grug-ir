@@ -75,8 +75,6 @@ def compile_grug(source_code: str) -> str:
                 instructions.append(f"{tmp} = call {node['name']}")
                 return tmp
 
-        return None  # Fallback for strict type checkers
-
     for stmt in ast["body"]:
         generate_expr(stmt, is_stmt=True)
 

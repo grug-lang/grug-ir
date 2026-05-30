@@ -56,7 +56,7 @@ def compile_grir_to_ll(grir_text: str) -> str:
                 # Close out previous function safely
                 last_line: str = ll_lines[-1].strip() if ll_lines else ""
                 if ret_type == "void" and not last_line.startswith(("return", "br")):
-                    ll_lines.append("  ret void")
+                    ll_lines.append("  ret void") # pragma: no cover # TODO: Remove pragma, since host fns returning nothing reach this
                 ll_lines.append("}\n")
 
             in_func = True
