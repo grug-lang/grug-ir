@@ -3,12 +3,7 @@ import os
 from pathlib import Path
 
 # Files and directories to ignore so we don't bloat the context window
-IGNORE_DIRS = {
-    ".git",
-    ".github",  # Ignore CI/CD workflow files (unless you are debugging them)
-    ".vscode",  # Ignore local IDE settings
-    ".output"
-}
+IGNORE_DIRS = {".git", ".vscode", ".output"}  # Ignore local IDE settings
 
 IGNORE_FILES = {
     "generate_llm_prompt.py",
