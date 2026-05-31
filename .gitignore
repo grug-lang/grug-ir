@@ -1,5 +1,5 @@
 .coverage
 .output
 llm_context.txt
-main.out
-main.exe
+program
+program.exe
