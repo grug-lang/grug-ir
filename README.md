@@ -127,7 +127,7 @@ This requires you to have Clang and Clang's [FileCheck](https://llvm.org/docs/Co
 
 ## Pre-commit hooks (recommended)
 
-The file `.pre-commit-config.yaml` is a [pre-commit hook](https://pre-commit.com/), which is set up to run the formatters [Black](https://github.com/psf/black) and [pyright](https://github.com/RobertCraigie/pyright-python) on every commit.
+The file `.pre-commit-config.yaml` is a [pre-commit hook](https://pre-commit.com/), which is set up to run the Python formatters [Black](https://github.com/psf/black) and [pyright](https://github.com/RobertCraigie/pyright-python) on every commit.
 
 ### Install pre-commit
 
