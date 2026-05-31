@@ -1,7 +1,19 @@
 import argparse
 import re
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
+
+CALL_RE = re.compile(r"^(\w+)\(([^)]*)\)$")
+
+
+def try_parse_call(expr: str) -> Optional[Tuple[str, List[str]]]:
+    m = CALL_RE.match(expr)
+    if not m:
+        return None
+    f_name = m.group(1)
+    raw = m.group(2).strip()
+    raw_args = [a.strip() for a in raw.split(",")] if raw else []
+    return f_name, raw_args
 
 
 def compile_grir_to_ll(grir_text: str) -> str:
@@ -20,7 +32,6 @@ def compile_grir_to_ll(grir_text: str) -> str:
     call_counter: int = 0
     op_counter: int = 0
 
-    args_stack: List[Tuple[str, str]] = []
     declarations: Set[Tuple[str, str, Tuple[str, ...]]] = set()
 
     type_map: Dict[str, str] = {
@@ -30,6 +41,12 @@ def compile_grir_to_ll(grir_text: str) -> str:
         "void": "void",
         "": "void",
     }
+
+    def close_func() -> None:
+        last = next((l.strip() for l in reversed(ll_lines) if l.strip()), "")
+        if not last.startswith(("ret ", "br ")):
+            ll_lines.append("  ret void")
+        ll_lines.append("}\n")
 
     def get_val(op: str) -> Tuple[str, str]:
         nonlocal load_counter
@@ -59,7 +76,7 @@ def compile_grir_to_ll(grir_text: str) -> str:
         # Handle function header
         if cmd in ("host", "export"):
             if in_func:
-                ll_lines.append("}\n")
+                close_func()
 
             match = re.match(r"(?:host|export) (\w+)\((.*)\)(.*)", line)
             assert match, f"Invalid function header: {line}"
@@ -79,7 +96,6 @@ def compile_grir_to_ll(grir_text: str) -> str:
 
             in_func = True
             locals_map.clear()
-            args_stack.clear()
             cmp_counter = 0
             fallthrough_counter = 0
             load_counter = 0
@@ -93,117 +109,119 @@ def compile_grir_to_ll(grir_text: str) -> str:
             continue
 
         # Handle inline declaration + assignment (e.g., t1: number = ...)
-        # parts[0] is 't1:', parts[1] is 'number', parts[2] is '='
-        if ":" in cmd and "=" in parts:
-            var_name = cmd.replace(":", "")
-            g_type = parts[1]
+        decl_match = re.match(r"(\w+): (\w+) = (.+)", line)
+        if decl_match:
+            var_name = decl_match.group(1)
+            g_type = decl_match.group(2)
+            rhs = decl_match.group(3).strip()
             ty = type_map.get(g_type, "double")
             locals_map[var_name] = ty
             ll_lines.append(f"  %{var_name} = alloca {ty}")
-            # Rewrite parts to look like standard assignment: ['t1', '=', 'call', ...]
-            parts = [var_name, "="] + parts[3:]
-            cmd = parts[0]
 
-        if cmd == "arg":
-            ty, val = get_val(parts[1])
-            args_stack.append((ty, val))
-
-        # Handle assignment to call
-        elif "call" in parts and len(parts) >= 2 and parts[1] == "=":
-            dest_var = parts[0]
-            f_name = parts[3]
-            call_args = list(args_stack)
-            args_stack.clear()
-            arg_str = ", ".join(f"{t} {v}" for t, v in call_args)
-
-            # Lookup type from map; fallback to double for host fns
-            r_ty = locals_map.get(dest_var, "double")
-            declarations.add((f_name, r_ty, tuple(t for t, _v in call_args)))
-
-            reg = f"%call{call_counter}"
-            call_counter += 1
-            ll_lines.append(f"  {reg} = call {r_ty} @{f_name}({arg_str})")
-            ll_lines.append(f"  store {r_ty} {reg}, ptr %{dest_var}")
-
-        elif "call" in parts:
-            f_name = parts[1]
-            call_args = list(args_stack)
-            args_stack.clear()
-            arg_str = ", ".join(f"{t} {v}" for t, v in call_args)
-            declarations.add((f_name, "void", tuple(t for t, _v in call_args)))
-            ll_lines.append(f"  call void @{f_name}({arg_str})")
-
-        elif len(parts) >= 3 and parts[1] == "=":
-            dest_var = parts[0]
-            ty1, val1 = get_val(parts[2])
-            op = parts[3]
-            _ty2, val2 = get_val(parts[4])
-            reg = f"%op{op_counter}"
-            op_counter += 1
-
-            cond_map = {
-                "==": "oeq",
-                "!=": "one",
-                ">": "ogt",
-                "<": "olt",
-                ">=": "oge",
-                "<=": "ole",
-            }
-            instr = cond_map.get(op, "oeq")
-            ll_lines.append(f"  {reg} = fcmp {instr} {ty1} {val1}, {val2}")
-            if dest_var in locals_map:
-                ll_lines.append(f"  store i1 {reg}, ptr %{dest_var}")
-
-        elif cmd == "if":
-            op1, cond, op2, _, label = parts[1], parts[2], parts[3], parts[4], parts[5]
-            ty1, val1 = get_val(op1)
-            _ty2, val2 = get_val(op2)
-
-            cmp_reg = f"%cmp{cmp_counter}"
-            cmp_counter += 1
-            fallthrough_label = f"fallthrough{fallthrough_counter}"
-            fallthrough_counter += 1
-
-            if ty1 == "i1":
-                cond_map = {"==": "eq", "!=": "ne"}
-                llvm_cond = cond_map.get(cond, "eq")
-                val2_i1 = "0" if "0" in val2 else "1"
-                ll_lines.append(f"  {cmp_reg} = icmp {llvm_cond} i1 {val1}, {val2_i1}")
+            call_result = try_parse_call(rhs)
+            if call_result:
+                # Value-returning call: t1: number = min(10, 5)
+                f_name, raw_args = call_result
+                call_args = [get_val(a) for a in raw_args]
+                arg_str = ", ".join(f"{t} {v}" for t, v in call_args)
+                r_ty = ty
+                declarations.add((f_name, r_ty, tuple(t for t, _ in call_args)))
+                reg = f"%call{call_counter}"
+                call_counter += 1
+                ll_lines.append(f"  {reg} = call {r_ty} @{f_name}({arg_str})")
+                ll_lines.append(f"  store {r_ty} {reg}, ptr %{var_name}")
             else:
+                # Binop: t2: bool = t1 == 5
+                binop_parts = rhs.split()
+                ty1, val1 = get_val(binop_parts[0])
+                op = binop_parts[1]
+                _ty2, val2 = get_val(binop_parts[2])
+                reg = f"%op{op_counter}"
+                op_counter += 1
+
                 cond_map = {
-                    ">=": "oge",
-                    "<=": "ole",
-                    ">": "ogt",
-                    "<": "olt",
                     "==": "oeq",
                     "!=": "one",
+                    ">": "ogt",
+                    "<": "olt",
+                    ">=": "oge",
+                    "<=": "ole",
                 }
-                llvm_cond = cond_map.get(cond, "oeq")
-                ll_lines.append(f"  {cmp_reg} = fcmp {llvm_cond} {ty1} {val1}, {val2}")
+                instr = cond_map.get(op, "oeq")
+                ll_lines.append(f"  {reg} = fcmp {instr} {ty1} {val1}, {val2}")
+                if var_name in locals_map:
+                    ll_lines.append(f"  store i1 {reg}, ptr %{var_name}")
 
-            ll_lines.append(
-                f"  br i1 {cmp_reg}, label %{label}, label %{fallthrough_label}"
-            )
-            ll_lines.append(f"\n{fallthrough_label}:")
+        else:
+            call_result = try_parse_call(line)
+            if call_result:
+                # Void call: assert(t2) or assert_failed()
+                f_name, raw_args = call_result
+                call_args = [get_val(a) for a in raw_args]
+                arg_str = ", ".join(f"{t} {v}" for t, v in call_args)
+                declarations.add((f_name, "void", tuple(t for t, _ in call_args)))
+                ll_lines.append(f"  call void @{f_name}({arg_str})")
 
-        elif cmd == "return":
-            if len(parts) > 1:
-                ty, val = get_val(parts[1])
-                ll_lines.append(f"  ret {ret_type} {val}")
-            else:
-                ll_lines.append(f"  ret void")
+            elif cmd == "if":
+                op1, cond, op2, _, label = (
+                    parts[1],
+                    parts[2],
+                    parts[3],
+                    parts[4],
+                    parts[5],
+                )
+                ty1, val1 = get_val(op1)
+                _ty2, val2 = get_val(op2)
 
-        elif cmd.endswith(":"):
-            label_name = cmd[:-1]
-            last = next((l.strip() for l in reversed(ll_lines) if l.strip()), "")
-            if not last.startswith(("ret ", "br ")):
-                ll_lines.append(f"  br label %{label_name}")
-            ll_lines.append(f"\n{cmd}")
+                cmp_reg = f"%cmp{cmp_counter}"
+                cmp_counter += 1
+                fallthrough_label = f"fallthrough{fallthrough_counter}"
+                fallthrough_counter += 1
+
+                if ty1 == "i1":
+                    cond_map = {"==": "eq", "!=": "ne"}
+                    llvm_cond = cond_map.get(cond, "eq")
+                    val2_i1 = "0" if "0" in val2 else "1"
+                    ll_lines.append(
+                        f"  {cmp_reg} = icmp {llvm_cond} i1 {val1}, {val2_i1}"
+                    )
+                else:
+                    cond_map = {
+                        ">=": "oge",
+                        "<=": "ole",
+                        ">": "ogt",
+                        "<": "olt",
+                        "==": "oeq",
+                        "!=": "one",
+                    }
+                    llvm_cond = cond_map.get(cond, "oeq")
+                    ll_lines.append(
+                        f"  {cmp_reg} = fcmp {llvm_cond} {ty1} {val1}, {val2}"
+                    )
+
+                ll_lines.append(
+                    f"  br i1 {cmp_reg}, label %{label}, label %{fallthrough_label}"
+                )
+                ll_lines.append(f"\n{fallthrough_label}:")
+
+            elif cmd == "return":
+                if len(parts) > 1:
+                    ty, val = get_val(parts[1])
+                    ll_lines.append(f"  ret {ret_type} {val}")
+                else:
+                    ll_lines.append(f"  ret void")
+
+            elif cmd.endswith(":"):
+                label_name = cmd[:-1]
+                last = next((l.strip() for l in reversed(ll_lines) if l.strip()), "")
+                if not last.startswith(("ret ", "br ")):
+                    ll_lines.append(f"  br label %{label_name}")
+                ll_lines.append(f"\n{cmd}")
 
         i += 1
 
     if in_func:
-        ll_lines.append("}\n")
+        close_func()
 
     decl_lines: List[str] = []
     defined_funcs: Set[str] = {

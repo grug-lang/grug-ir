@@ -1,18 +1,10 @@
 export tick()
-    arg 10
-    arg 5
-    t1: number = call min
+    t1: number = min(10, 5)
 
     t2: bool = t1 == 5
-    arg t2
-    call assert
+    assert(t2)
 
-    arg 10
-    arg 5
-    t3: number = call max
+    t3: number = max(10, 5)
 
     t4: bool = t3 == 10
-    arg t4
-    call assert
-
-    return
+    assert(t4)

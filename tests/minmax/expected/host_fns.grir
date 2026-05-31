@@ -12,6 +12,6 @@ L2:
 
 host assert(condition: bool)
     if condition != 0 goto L3
-    call assert_failed
+    assert_failed()
 L3:
     return

@@ -99,7 +99,7 @@ class GrirGenerator:
 
     def _emit_func_call(self, call):
         name = call.name.name
-        self.lines.append(f"    call {name}")
+        self.lines.append(f"    {name}()")
 
     def _emit_return(self, ret):
         assert isinstance(ret.expr, c_ast.TernaryOp)

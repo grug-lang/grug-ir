@@ -71,6 +71,8 @@ def compile_grug(source_code: str) -> str:
         elif node["type"] == "binop":
             left_val = generate_expr(node["left"])
             right_val = generate_expr(node["right"])
+            assert left_val is not None
+            assert right_val is not None
             tmp = f"t{temp_count}"
             temp_count += 1
             # Declare inline with type
@@ -80,32 +82,36 @@ def compile_grug(source_code: str) -> str:
             assert node["type"] == "call"
             # Evaluate inner arguments first
             arg_vals = [generate_expr(arg) for arg in node["args"]]
-
-            # Emit arguments
+            arg_strs = []
             for val in arg_vals:
-                instructions.append(f"arg {val}")
+                assert val is not None
+                arg_strs.append(val)
+            args_str = ", ".join(arg_strs)
 
             if is_stmt:
-                instructions.append(f"call {node['name']}")
+                instructions.append(f"{node['name']}({args_str})")
                 instructions.append("")
                 return None
             else:
                 tmp = f"t{temp_count}"
                 temp_count += 1
                 # Declare inline with type
-                instructions.append(f"{tmp}: number = call {node['name']}")
+                instructions.append(f"{tmp}: number = {node['name']}({args_str})")
                 instructions.append("")
                 return tmp
 
     for stmt in ast["body"]:
         generate_expr(stmt, is_stmt=True)
 
+    # Strip trailing empty lines to prevent double spaces between functions
+    while instructions and instructions[-1] == "":
+        instructions.pop()
+
     # Combine into final GRIR format with 4-space indentation
     header = f"export {ast['name']}()"
     indented_instrs = [f"    {line}" if line else "" for line in instructions]
 
-    # All functions must end with a return
-    lines: List[str] = [header] + indented_instrs + ["    return"]
+    lines: List[str] = [header] + indented_instrs
     return "\n".join(lines) + "\n"
 
 
