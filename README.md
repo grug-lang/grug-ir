@@ -28,9 +28,15 @@ graph TD
     style rt  fill:#faf5ff,stroke:#c4b5fd,color:#4c1d95
 ```
 
+## Architecture & Design Principles
+
+* **Human Readability Over Strict TAC:** The `.grir` representation moves away from strict Three-Address Code (TAC) in favor of increased human readability. By allowing arguments to be passed directly within the function call (e.g., `t1: number = min(10, 5)`) instead of using stack pushes, the format remains linear while staying highly intuitive. This atomic argument structure eliminates the need for recursive descent parsing in the compiler backend.
+* **Generic Storage:** Generics exist strictly for the frontend to perform type-checking. During compilation to `.grir` and `.grbc` (grug bitcode), generic types such as `List[number]` are simplified and stored explicitly as `u64` IDs rather than complex structures.
+* **No SSA Form:** The IR avoids Static Single-Assignment (SSA) form, as phi nodes introduce extra complexity that backends can just deduce. Keeping the IR simple ensures we don't have to pass AST node struct pointers to simple backends.
+
 ## Simple grug IR example
 
-The `tests/minmax/` directory serves as the canonical example of how host functions and grug code interoperate.
+The `tests/minmax/` directory serves as the canonical example of how host functions and grug code interoperate:
 ```
 tests/minmax
 ├── creeper-Entity.grug
@@ -78,14 +84,14 @@ L2:
 
 host assert(condition: bool)
     if condition != 0 goto L3
-    call assert_failed
+    assert_failed()
 L3:
     return
 ```
 
 ## Complex grug IR example
 
-Grug IR uses a linear format that forbids nested expressions to ensure simplicity and readability. By mandating that arguments must be atomic (constants or variables, aka [A-normal form](https://en.wikipedia.org/wiki/A-normal_form)) rather than arbitrary expressions, we eliminate the need for recursive descent parsing in the compiler backend. When `compile_grug.py` processes grug code, it flattens complex logic into a sequence of straightforward assignments, where each line performs exactly one operation.
+When `compile_grug.py` processes grug code, it flattens complex logic into a sequence of straightforward assignments, where each line performs exactly one operation.
 
 Given this grug code in `tests/minmax/creeper-Entity.grug`:
 ```py
@@ -98,26 +104,18 @@ export tick() {
 `compile_grug.py` generates the following `.grir` representation, found in `tests/minmax/expected/creeper-Entity.grir`:
 ```
 export tick()
-    arg 10
-    arg 5
-    t1: number = call min
+    t1: number = min(10, 5)
 
     t2: bool = t1 == 5
-    arg t2
-    call assert
+    assert(t2)
 
-    arg 10
-    arg 5
-    t3: number = call max
+    t3: number = max(10, 5)
 
     t4: bool = t3 == 10
-    arg t4
-    call assert
-
-    return
+    assert(t4)
 ```
 
-This format ensures that arguments are pushed onto the stack via `arg` before invoking the function, and return values are captured into temporary variables (e.g., `t1`, `t3`) when necessary for further operations.
+This format ensures that function calls are natively formatted, and return values are captured into temporary variables (e.g., `t1`, `t3`) when necessary for further operations.
 
 ## Running `tests.py`
 
@@ -140,38 +138,6 @@ pre-commit install
 pre-commit run --all-files
 ```
 
-## TODO
+## Issue Tracking & Project Plan
 
-Here is the high-level plan for grug-lang/grug-ir, which can be split into small issues later:
-- `.grir` (grug IR) is the textual representation of `.grbc`
-- `.grbc` (grug bitcode) is the binary representation of `.grir`
-- They are [TAC](https://en.wikipedia.org/wiki/Three-address_code), but I am leaning towards *no* [SSA form](https://en.wikipedia.org/wiki/Static_single-assignment_form), since [phi nodes](https://en.wikipedia.org/wiki/Static_single-assignment_form#Converting_to_SSA) are extra complexity that backends can [just deduce](https://en.wikipedia.org/wiki/Static_single-assignment_form#Computing_minimal_SSA_using_dominance_frontiers)
-  - *Real* optimizers like LLVM also still lower `.bc` to target-specific [`.mir`](https://llvm.org/docs/MIRLangRef.html), so `.grbc` isn't the lowest IR anyways
-  - Keeping the IR simple means we won't have to additionally pass the AST node struct pointers anymore to simple backends
-- Let grug-ir transpile all tests in grug-tests to `.grir`, and let it test `.grir` -> `.grbc` -> `.grir` is lossless for all of them
-  - This will require `grir2grbc.py` and `grbc2grir.py`
-  - This is unlike LLVM, where `.ll` -> `.bc` -> `.ll` is lossy, which meant they had to write [llvm-diff](https://llvm.org/docs/CommandGuide/llvm-diff.html)
-  - Similar to [`grug-tests/grug_grammar.lark`](https://github.com/grug-lang/grug-tests/blob/main/grug_grammar.lark), `grir_grammar.lark` must successfully parse all `.grir` files in CI
-  - Similar to `.grug`, I propose that whitespace should be part of `.grir` its grammar
-    - Unlike `.grug`, comments and empty lines won't be allowed, since `.grir` isn't meant to be written by hand
-- Add `grug_compiler.py` to compile `.grug` to `.grbc`
-  - Similar to [`grug-tests/grug_grammar.py`](https://github.com/grug-lang/grug-tests/blob/main/grug_grammar.py) it would read `grir_grammar.lark`
-- Add `grbc2ll.py` to convert `.grbc` to `.ll`
-- Add `c2grbc.py` to convert `.c` to `.grbc`
-  - It would depend on a popular Python package for parsing, like [pycparser](https://github.com/eliben/pycparser)
-  - It would only support a strict subset of C that fits within grug's simple IR goal
-  - People could fork `c2grbc.py` to write say `cpp2grbc.py` and `py2grbc.py`, which we would link in grug-ir's readme
-  - This will allow grug backends to _fully_ inline tons of modding API host functions (intrinsics), without writing `.grir` by hand
-    - This will be especially impactful for data structures like `List` and `Dict`, since grug has no built-in data structures
-    - LuaJIT and WASM don't have this!
-- Let CI test that `grbc_interpreter.py` passes all relevant tests in grug-tests (for example, hot reloading tests are not relevant)
-  - Let `grbc_interpreter.py` first transform the `.grbc` into SSA form, to ensure the TAC format doesn't make it too hard
-- Let grug-ir have its own `.c` microbenchmarks, with a `.grug` version for each of them
-  - Let CI test that `.grug`->`.grbc`->`.ll`->`a.out` is never more than 5% slower than `.c`->`.ll`->`a.out`
-    - Benchmarking has been my specialization for over a year now at AMD, so I can help with lowering noise below 5%
-  - Let CI automatically update their benchmark graphs in the readme, similar to [grug-for-lua's graphs](https://github.com/grug-lang/grug-for-lua#benchmarks)
-- Add a C microbenchmark that runs fast as a result of a pragma, or something like specifying alignment
-  - `.grir` and `.grbc` may store `align` as an optimization hint that grug implementations are free to ignore
-  - `.grir` and `.grbc` _won't_ store `restrict` on pointers, as that was a hint to the _compiler_
-- Note that generics are just for the frontend to perform type-checking, so `List[number]` will be stored as a `u64` ID
-- Just like grug-for-python, all scripts in grug-ir must pass Python's [Black](https://github.com/psf/black) formatter, pass all [pyright](https://github.com/microsoft/pyright) type checks, keep 100% coverage with [coverage.py](https://github.com/coveragepy/coveragepy), have no dependencies, and support >= Python 3.7
+All planned features, architecture rewrites, and CI pipeline enhancements for grug IR are tracked in the repository's [GitHub Issues](https://github.com/grug-lang/grug-ir/issues).
