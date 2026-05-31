@@ -1,18 +1,14 @@
 export tick()
-    local t1 number
-    local t2 bool
-    local t3 number
-    local t4 bool
     arg 10
     arg 5
-    t1 = call min
-    t2 = t1 == 5
+    t1: number = call min
+    t2: bool = t1 == 5
     arg t2
     call assert
     arg 10
     arg 5
-    t3 = call max
-    t4 = t3 == 10
+    t3: number = call max
+    t4: bool = t3 == 10
     arg t4
     call assert
     return

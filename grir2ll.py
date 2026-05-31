@@ -6,7 +6,6 @@ from typing import Dict, List, Set, Tuple
 
 def compile_grir_to_ll(grir_text: str) -> str:
     ll_lines: List[str] = []
-    # Stripping handles the 4-space indentation requirement
     lines: List[str] = [line.strip() for line in grir_text.splitlines() if line.strip()]
 
     in_func: bool = False
@@ -29,7 +28,7 @@ def compile_grir_to_ll(grir_text: str) -> str:
         "id": "i64",
         "bool": "i1",
         "void": "void",
-        "": "void",  # Handle empty return type for export
+        "": "void",
     }
 
     def get_val(op: str) -> Tuple[str, str]:
@@ -48,7 +47,7 @@ def compile_grir_to_ll(grir_text: str) -> str:
             ll_lines.append(f"  {reg} = load {ty}, ptr %{op}")
             return (ty, reg)
         else:
-            assert op in params_map
+            assert op in params_map, f"Variable {op} not found in locals or params"
             return (params_map[op], f"%{op}")
 
     i: int = 0
@@ -57,22 +56,18 @@ def compile_grir_to_ll(grir_text: str) -> str:
         parts = line.split()
         cmd = parts[0]
 
-        # Handle function header (host or export)
+        # Handle function header
         if cmd in ("host", "export"):
             if in_func:
                 ll_lines.append("}\n")
 
-            # Parse signature: (host|export) name(a: type, b: type) [type]
             match = re.match(r"(?:host|export) (\w+)\((.*)\)(.*)", line)
             assert match, f"Invalid function header: {line}"
             func_name = match.group(1)
             params_str = match.group(2)
             ret_part = match.group(3).strip()
 
-            # Set return type
             ret_type = type_map.get(ret_part, "void")
-
-            # Parse params
             params_list: List[Tuple[str, str]] = []
             params_map.clear()
             if params_str.strip():
@@ -97,69 +92,67 @@ def compile_grir_to_ll(grir_text: str) -> str:
             i += 1
             continue
 
-        elif cmd == "local":
-            var_name: str = parts[1]
-            g_type: str = parts[2] if len(parts) > 2 else "number"
+        # Handle inline declaration + assignment (e.g., t1: number = ...)
+        # parts[0] is 't1:', parts[1] is 'number', parts[2] is '='
+        if ":" in cmd and "=" in parts:
+            var_name = cmd.replace(":", "")
+            g_type = parts[1]
             ty = type_map.get(g_type, "double")
             locals_map[var_name] = ty
             ll_lines.append(f"  %{var_name} = alloca {ty}")
+            # Rewrite parts to look like standard assignment: ['t1', '=', 'call', ...]
+            parts = [var_name, "="] + parts[3:]
+            cmd = parts[0]
 
-        elif cmd == "arg":
+        if cmd == "arg":
             ty, val = get_val(parts[1])
             args_stack.append((ty, val))
 
-        elif cmd == "call" or (
-            len(parts) >= 3 and parts[1] == "=" and parts[2] == "call"
-        ):
-            if cmd == "call":
-                f_name: str = parts[1]
-                dest_var = None
-            else:
-                dest_var = parts[0]
-                f_name = parts[3]
-
-            call_args: List[Tuple[str, str]] = list(args_stack)
+        # Handle assignment to call
+        elif "call" in parts and len(parts) >= 2 and parts[1] == "=":
+            dest_var = parts[0]
+            f_name = parts[3]
+            call_args = list(args_stack)
             args_stack.clear()
-            arg_str: str = ", ".join(f"{t} {v}" for t, v in call_args)
+            arg_str = ", ".join(f"{t} {v}" for t, v in call_args)
 
-            if dest_var:
-                r_ty: str = locals_map.get(dest_var, params_map.get(dest_var, "double"))
-            else:
-                r_ty = "void"
-
+            # Lookup type from map; fallback to double for host fns
+            r_ty = locals_map.get(dest_var, "double")
             declarations.add((f_name, r_ty, tuple(t for t, _v in call_args)))
 
-            if dest_var:
-                reg = f"%call{call_counter}"
-                call_counter += 1
-                ll_lines.append(f"  {reg} = call {r_ty} @{f_name}({arg_str})")
-                if dest_var in locals_map:
-                    ll_lines.append(f"  store {r_ty} {reg}, ptr %{dest_var}")
-            else:
-                ll_lines.append(f"  call {r_ty} @{f_name}({arg_str})")
+            reg = f"%call{call_counter}"
+            call_counter += 1
+            ll_lines.append(f"  {reg} = call {r_ty} @{f_name}({arg_str})")
+            ll_lines.append(f"  store {r_ty} {reg}, ptr %{dest_var}")
 
-        elif len(parts) >= 3 and parts[1] == "=" and parts[2] != "call":
+        elif "call" in parts:
+            f_name = parts[1]
+            call_args = list(args_stack)
+            args_stack.clear()
+            arg_str = ", ".join(f"{t} {v}" for t, v in call_args)
+            declarations.add((f_name, "void", tuple(t for t, _v in call_args)))
+            ll_lines.append(f"  call void @{f_name}({arg_str})")
+
+        elif len(parts) >= 3 and parts[1] == "=":
             dest_var = parts[0]
-            if len(parts) == 5:
-                ty1, val1 = get_val(parts[2])
-                op: str = parts[3]
-                _ty2, val2 = get_val(parts[4])
-                reg = f"%op{op_counter}"
-                op_counter += 1
+            ty1, val1 = get_val(parts[2])
+            op = parts[3]
+            _ty2, val2 = get_val(parts[4])
+            reg = f"%op{op_counter}"
+            op_counter += 1
 
-                if op in ("==", "!=", ">", "<", ">=", "<="):
-                    cond_map = {
-                        "==": "oeq",
-                        "!=": "one",
-                        ">": "ogt",
-                        "<": "olt",
-                        ">=": "oge",
-                        "<=": "ole",
-                    }
-                    instr = cond_map[op]
-                    ll_lines.append(f"  {reg} = fcmp {instr} {ty1} {val1}, {val2}")
-                    if dest_var in locals_map:
-                        ll_lines.append(f"  store i1 {reg}, ptr %{dest_var}")
+            cond_map = {
+                "==": "oeq",
+                "!=": "one",
+                ">": "ogt",
+                "<": "olt",
+                ">=": "oge",
+                "<=": "ole",
+            }
+            instr = cond_map.get(op, "oeq")
+            ll_lines.append(f"  {reg} = fcmp {instr} {ty1} {val1}, {val2}")
+            if dest_var in locals_map:
+                ll_lines.append(f"  store i1 {reg}, ptr %{dest_var}")
 
         elif cmd == "if":
             op1, cond, op2, _, label = parts[1], parts[2], parts[3], parts[4], parts[5]
@@ -213,7 +206,6 @@ def compile_grir_to_ll(grir_text: str) -> str:
         ll_lines.append("}\n")
 
     decl_lines: List[str] = []
-    # Updated to identify both host and export definitions
     defined_funcs: Set[str] = {
         line.split()[1].split("(")[0]
         for line in lines

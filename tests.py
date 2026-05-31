@@ -96,16 +96,16 @@ def run_test(test_dir: Path, prog_exe: str) -> None:
     )
     run_step(["coverage", "run", "--append", "grir2ll.py", creeper_grir, creeper_ll])
 
-    # 5. Execute JIT loader with test name argument
-    cmd = [f"./{prog_exe}" if sys.platform != "win32" else prog_exe, test_dir.name]
-    run_step(cmd)
-
-    # 6. Verify outputs strictly
+    # 5. Verify outputs strictly
     print("\nVerifying outputs...")
     check_diff(host_fns_grir, expected_dir / "host_fns.grir")
     check_diff(host_fns_ll, expected_dir / "host_fns.ll")
     check_diff(creeper_grir, expected_dir / "creeper-Entity.grir")
     check_diff(creeper_ll, expected_dir / "creeper-Entity.ll")
+
+    # 6. Execute JIT loader with test name argument
+    cmd = [f"./{prog_exe}" if sys.platform != "win32" else prog_exe, test_dir.name]
+    run_step(cmd)
 
     # 7. Run FileCheck against the generated mods.ll
     run_step(

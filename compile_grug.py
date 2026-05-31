@@ -61,7 +61,6 @@ def compile_grug(source_code: str) -> str:
     ast = parse_fn()
 
     # 3. Code Generator: Flatten the AST into GRIR TAC instructions
-    locals_decl: List[str] = []
     instructions: List[str] = []
     temp_count: int = 1
 
@@ -74,8 +73,8 @@ def compile_grug(source_code: str) -> str:
             right_val = generate_expr(node["right"])
             tmp = f"t{temp_count}"
             temp_count += 1
-            locals_decl.append(f"local {tmp} bool")
-            instructions.append(f"{tmp} = {left_val} {node['op']} {right_val}")
+            # Declare inline with type
+            instructions.append(f"{tmp}: bool = {left_val} {node['op']} {right_val}")
             return tmp
         else:
             assert node["type"] == "call"
@@ -92,8 +91,8 @@ def compile_grug(source_code: str) -> str:
             else:
                 tmp = f"t{temp_count}"
                 temp_count += 1
-                locals_decl.append(f"local {tmp} number")
-                instructions.append(f"{tmp} = call {node['name']}")
+                # Declare inline with type
+                instructions.append(f"{tmp}: number = call {node['name']}")
                 return tmp
 
     for stmt in ast["body"]:
@@ -101,11 +100,10 @@ def compile_grug(source_code: str) -> str:
 
     # Combine into final GRIR format with 4-space indentation
     header = f"export {ast['name']}()"
-    indented_locals = [f"    {line}" for line in locals_decl]
     indented_instrs = [f"    {line}" for line in instructions]
 
     # All functions must end with a return
-    lines: List[str] = [header] + indented_locals + indented_instrs + ["    return"]
+    lines: List[str] = [header] + indented_instrs + ["    return"]
     return "\n".join(lines) + "\n"
 
 
