@@ -1,10 +1,9 @@
 import argparse
 
-from pycparser import c_ast, parse_file  # pyright: ignore[reportMissingImports]
+import pycparser_fake_libc
+from pycparser import c_ast, parse_file
 
-C_TYPE_TO_GRIR = {
-    "double": "number",
-}
+C_TYPE_TO_GRIR = {"double": "number", "bool": "bool", "void": "void"}
 
 INVERT_OP = {
     "<": ">=",
@@ -19,24 +18,16 @@ INVERT_OP = {
 def c_type_to_grir(type_node):
     if isinstance(type_node, c_ast.TypeDecl):
         return c_type_to_grir(type_node.type)
-    if isinstance(type_node, c_ast.IdentifierType):
-        key = " ".join(type_node.names)
-        if key not in C_TYPE_TO_GRIR:  # pragma: no cover
-            raise NotImplementedError(f"Unsupported C type: {key!r}")
-        return C_TYPE_TO_GRIR[key]
-    raise NotImplementedError(
-        f"Unsupported type node: {type(type_node).__name__}"
-    )  # pragma: no cover
+
+    assert isinstance(type_node, c_ast.IdentifierType)
+    key = " ".join(type_node.names)
+    assert key in C_TYPE_TO_GRIR
+    return C_TYPE_TO_GRIR[key]
 
 
 def expr_to_str(node):
-    if isinstance(node, c_ast.ID):
-        return node.name
-    # if isinstance(node, c_ast.Constant):
-    #     return node.value
-    raise NotImplementedError(
-        f"Unsupported expression: {type(node).__name__}"
-    )  # pragma: no cover
+    assert isinstance(node, c_ast.ID)
+    return node.name
 
 
 class GrirGenerator:
@@ -67,42 +58,55 @@ class GrirGenerator:
 
         ret_type = c_type_to_grir(func_decl.type)
         self.lines.append(f"returns {ret_type}")
-
         self._emit_compound(func_def.body)
 
     def _emit_compound(self, compound):
         if compound.block_items:
-            for stmt in compound.block_items:
+            stmts = compound.block_items
+            i = 0
+            while i < len(stmts):
+                stmt = stmts[i]
                 self._emit_stmt(stmt)
+                i += 1
 
     def _emit_stmt(self, stmt):
         if isinstance(stmt, c_ast.Return):
             self._emit_return(stmt)
+        elif isinstance(stmt, c_ast.If):
+            self._emit_if(stmt)
+        elif isinstance(stmt, c_ast.FuncCall):
+            self._emit_func_call(stmt)
         else:
-            raise NotImplementedError(
-                f"Unsupported statement: {type(stmt).__name__}"
-            )  # pragma: no cover
+            assert isinstance(stmt, c_ast.Compound)
+            self._emit_compound(stmt)
+
+    def _emit_if(self, if_stmt):
+        cond = if_stmt.cond
+        label = self._new_label()
+
+        if isinstance(cond, c_ast.UnaryOp) and cond.op == "!":
+            var_name = expr_to_str(cond.expr)
+            self.lines.append(f"if {var_name} != 0 goto {label}")
+
+        self._emit_stmt(if_stmt.iftrue)
+        self.lines.append(f"{label}:")
+
+    def _emit_func_call(self, call):
+        name = call.name.name
+        self.lines.append(f"call {name}")
 
     def _emit_return(self, ret):
-        if isinstance(ret.expr, c_ast.TernaryOp):
-            self._emit_ternary_return(ret.expr)
-        else:
-            self.lines.append(
-                f"return {expr_to_str(ret.expr)}"
-            )  # pragma: no cover # TODO: Remove pragma, since non-ternaries reach this
+        assert ret.expr
+        assert isinstance(ret.expr, c_ast.TernaryOp)
+        self._emit_ternary_return(ret.expr)
 
     def _emit_ternary_return(self, ternary):
         cond = ternary.cond
         label = self._new_label()
-
-        if not isinstance(cond, c_ast.BinaryOp):
-            raise NotImplementedError(
-                f"Unsupported ternary condition: {type(cond).__name__}"
-            )  # pragma: no cover # TODO: Remove pragma, since conditions can be any expr
-
         inv_op = INVERT_OP[cond.op]
         left = expr_to_str(cond.left)
         right = expr_to_str(cond.right)
+
         self.lines.append(f"if {left} {inv_op} {right} goto {label}")
         self.lines.append(f"return {expr_to_str(ternary.iftrue)}")
         self.lines.append(f"{label}:")
@@ -117,7 +121,9 @@ def main():
     parser.add_argument("output", help="Path for the output .grir file")
     args = parser.parse_args()
 
-    ast = parse_file(args.input, use_cpp=False)
+    fake_libc_arg = "-I" + pycparser_fake_libc.directory
+    ast = parse_file(args.input, use_cpp=True, cpp_args=fake_libc_arg)
+
     generator = GrirGenerator()
     grir = generator.generate(ast)
     with open(args.output, "w") as f:

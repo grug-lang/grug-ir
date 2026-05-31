@@ -1,3 +1,4 @@
 export tick() {
-    print_number(min(4, 2))
+    assert(min(10, 5) == 5)
+    assert(max(10, 5) == 10)
 }

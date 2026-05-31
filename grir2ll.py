@@ -20,14 +20,17 @@ def compile_grir_to_ll(grir_text: str) -> str:
     op_counter: int = 0
 
     args_stack: List[Tuple[str, str]] = []
-    # (function_name, return_type, tuple_of_arg_types)
     declarations: Set[Tuple[str, str, Tuple[str, ...]]] = set()
 
     # Map grug types to LLVM types
-    type_map: Dict[str, str] = {"number": "double", "id": "i64"}
+    type_map: Dict[str, str] = {
+        "number": "double",
+        "id": "i64",
+        "bool": "i1",
+        "void": "void",
+    }
 
     def get_val(op: str) -> Tuple[str, str]:
-        """Resolves variable types and emits loads for locals."""
         nonlocal load_counter
         try:
             f: float = float(op)
@@ -53,10 +56,7 @@ def compile_grir_to_ll(grir_text: str) -> str:
 
         if cmd in ("host_fn", "local_fn", "export_fn"):
             if in_func:
-                # Close out previous function safely
                 last_line: str = ll_lines[-1].strip() if ll_lines else ""
-                if ret_type == "void" and not last_line.startswith(("return", "br")):
-                    ll_lines.append("  ret void") # pragma: no cover # TODO: Remove pragma, since host fns returning nothing reach this
                 ll_lines.append("}\n")
 
             in_func = True
@@ -74,7 +74,6 @@ def compile_grir_to_ll(grir_text: str) -> str:
             ret_type = "void"
             i += 1
 
-            # Gather parameters and return type
             while i < len(lines):
                 sub_parts: List[str] = lines[i].split()
                 if sub_parts[0] == "param":
@@ -111,26 +110,20 @@ def compile_grir_to_ll(grir_text: str) -> str:
         ):
             if cmd == "call":
                 f_name: str = parts[1]
-                dest_var: str | None = None
+                dest_var = None
             else:
                 dest_var = parts[0]
                 f_name = parts[3]
 
             call_args: List[Tuple[str, str]] = list(args_stack)
             args_stack.clear()
-
             arg_str: str = ", ".join(f"{t} {v}" for t, v in call_args)
 
             if dest_var:
-                if dest_var in locals_map:
-                    r_ty: str = locals_map[dest_var]
-                else:  # pragma: no cover # TODO: Remove prama, since reassigning params is allowed in grug (for now)
-                    assert dest_var in params_map
-                    r_ty = params_map[dest_var]
+                r_ty: str = locals_map.get(dest_var, params_map.get(dest_var, "double"))
             else:
                 r_ty = "void"
 
-            # Register declaration for external linking
             declarations.add((f_name, r_ty, tuple(t for t, _v in call_args)))
 
             if dest_var:
@@ -142,61 +135,71 @@ def compile_grir_to_ll(grir_text: str) -> str:
             else:
                 ll_lines.append(f"  call {r_ty} @{f_name}({arg_str})")
 
-        elif (
-            len(parts) >= 3 and parts[1] == "=" and parts[2] != "call"
-        ):  # pragma: no cover # TODO: Remove pragma, since this just requires `local_var = 10`
-            # Variable assignments: var = val OR var = a op b
+        elif len(parts) >= 3 and parts[1] == "=" and parts[2] != "call":
             dest_var = parts[0]
-            if len(parts) == 3:
-                ty, val = get_val(parts[2])
-                if dest_var in locals_map:
-                    ll_lines.append(f"  store {ty} {val}, ptr %{dest_var}")
-            elif len(parts) == 5:
+            if len(parts) == 5:
                 ty1, val1 = get_val(parts[2])
                 op: str = parts[3]
                 _ty2, val2 = get_val(parts[4])
                 reg = f"%op{op_counter}"
                 op_counter += 1
 
-                instr: str = (
-                    "fadd"
-                    if op == "+"
-                    else "fsub" if op == "-" else "fmul" if op == "*" else "fdiv"
-                )
-                ll_lines.append(f"  {reg} = {instr} {ty1} {val1}, {val2}")
-                if dest_var in locals_map:
-                    ll_lines.append(f"  store {ty1} {reg}, ptr %{dest_var}")
+                if op in ("==", "!=", ">", "<", ">=", "<="):
+                    cond_map = {
+                        "==": "oeq",
+                        "!=": "one",
+                        ">": "ogt",
+                        "<": "olt",
+                        ">=": "oge",
+                        "<=": "ole",
+                    }
+                    instr = cond_map[op]
+                    ll_lines.append(f"  {reg} = fcmp {instr} {ty1} {val1}, {val2}")
+                    if dest_var in locals_map:
+                        ll_lines.append(f"  store i1 {reg}, ptr %{dest_var}")
 
         elif cmd == "if":
             op1, cond, op2, _, label = parts[1], parts[2], parts[3], parts[4], parts[5]
-            cond_map: Dict[str, str] = {
-                ">=": "oge",
-                "<=": "ole",
-                ">": "ogt",
-                "<": "olt",
-                "==": "oeq",
-                "!=": "one",
-            }
-            llvm_cond: str = cond_map.get(cond, "oeq")
-            cmp_reg: str = f"%cmp{cmp_counter}"
-            cmp_counter += 1
-            fallthrough_label: str = f"fallthrough{fallthrough_counter}"
-            fallthrough_counter += 1
-
             ty1, val1 = get_val(op1)
             _ty2, val2 = get_val(op2)
-            ll_lines.append(f"  {cmp_reg} = fcmp {llvm_cond} {ty1} {val1}, {val2}")
+
+            cmp_reg = f"%cmp{cmp_counter}"
+            cmp_counter += 1
+            fallthrough_label = f"fallthrough{fallthrough_counter}"
+            fallthrough_counter += 1
+
+            if ty1 == "i1":
+                cond_map = {"==": "eq", "!=": "ne"}
+                llvm_cond = cond_map.get(cond, "eq")
+                val2_i1 = "0" if "0" in val2 else "1"
+                ll_lines.append(f"  {cmp_reg} = icmp {llvm_cond} i1 {val1}, {val2_i1}")
+            else:
+                cond_map = {
+                    ">=": "oge",
+                    "<=": "ole",
+                    ">": "ogt",
+                    "<": "olt",
+                    "==": "oeq",
+                    "!=": "one",
+                }
+                llvm_cond = cond_map.get(cond, "oeq")
+                ll_lines.append(f"  {cmp_reg} = fcmp {llvm_cond} {ty1} {val1}, {val2}")
+
             ll_lines.append(
                 f"  br i1 {cmp_reg}, label %{label}, label %{fallthrough_label}"
             )
             ll_lines.append(f"\n{fallthrough_label}:")
 
         elif cmd == "return":
-            op = parts[1]
-            ty, val = get_val(op)
+            assert len(parts) > 1
+            ty, val = get_val(parts[1])
             ll_lines.append(f"  ret {ret_type} {val}")
 
         elif cmd.endswith(":"):
+            label_name = cmd[:-1]
+            last = next((l.strip() for l in reversed(ll_lines) if l.strip()), "")
+            if not last.startswith(("ret ", "br ")):
+                ll_lines.append(f"  br label %{label_name}")
             ll_lines.append(f"\n{cmd}")
 
         i += 1
@@ -207,7 +210,6 @@ def compile_grir_to_ll(grir_text: str) -> str:
             ll_lines.append("  ret void")
         ll_lines.append("}\n")
 
-    # Emit function declarations at the top for resolving cross-module symbols
     decl_lines: List[str] = []
     defined_funcs: Set[str] = {
         line.strip().split()[1]
@@ -233,7 +235,6 @@ def main():
     grir_text = args.input.read_text(encoding="utf-8")
     ll_text = compile_grir_to_ll(grir_text)
     args.output.write_text(ll_text, encoding="utf-8")
-    print(f"Successfully compiled {args.input.name} -> {args.output.name}")
 
 
 if __name__ == "__main__":

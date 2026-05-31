@@ -14,3 +14,9 @@ if a <= b goto L2
 return a
 L2:
 return b
+host_fn assert
+param condition bool
+returns void
+if condition != 0 goto L3
+call assert_failed
+L3:

@@ -64,16 +64,13 @@ jobs:
           pip install black --user
           black --check .
 
-      # pycparser is the one explicitly allowed dependency (c2grir.py).
-      # All other scripts must work without it, so it is installed last and
-      # nothing else is added — enforcing the no-dependencies requirement.
       - name: Install pycparser and coverage (Python ${{ matrix.python-version }})
         run: |
           export PYENV_ROOT="$HOME/.pyenv"
           export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
 
           pip install --upgrade pip --user
-          pip install coverage pycparser --user
+          pip install pycparser pycparser-fake-libc coverage --user
 
       - name: Run tests with coverage (Python ${{ matrix.python-version }})
         run: |

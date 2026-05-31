@@ -4,8 +4,13 @@ from typing import Any, Dict, List, Optional
 
 
 def compile_grug(source_code: str) -> str:
-    # 1. Lexer: Tokenize identifiers, numbers, and basic syntax
-    tokens: List[str] = re.findall(r"[a-zA-Z_]\w*|\d+|[(){},]", source_code)
+    # Strip out comments before lexing
+    source_code = re.sub(r"#.*", "", source_code)
+
+    # 1. Lexer: Tokenize identifiers, floats, operators, and basic syntax
+    tokens: List[str] = re.findall(
+        r"[a-zA-Z_]\w*|\d+(?:\.\d+)?|==|[(){},]", source_code
+    )
     pos: int = 0
 
     def peek() -> str:
@@ -20,9 +25,10 @@ def compile_grug(source_code: str) -> str:
     # 2. Parser: Build a simple AST
     def parse_expr() -> Dict[str, Any]:
         tok = consume()
-        if tok.isdigit():
-            return {"type": "num", "val": tok}
-        elif peek() == "(":
+        if tok[0].isdigit():
+            left: Dict[str, Any] = {"type": "num", "val": tok}
+        else:
+            assert peek() == "("
             consume()  # '('
             args: List[Dict[str, Any]] = []
             while peek() != ")":
@@ -30,8 +36,15 @@ def compile_grug(source_code: str) -> str:
                 if peek() == ",":
                     consume()  # ','
             consume()  # ')'
-            return {"type": "call", "name": tok, "args": args}
-        raise SyntaxError(f"Unexpected token: {tok}")  # pragma: no cover
+            left = {"type": "call", "name": tok, "args": args}
+
+        # Handle inline equality operators immediately after functions/numbers
+        if peek() == "==":
+            consume()  # '=='
+            right = parse_expr()
+            return {"type": "binop", "op": "==", "left": left, "right": right}
+
+        return left
 
     def parse_fn() -> Dict[str, Any]:
         consume()  # 'export'
@@ -47,7 +60,7 @@ def compile_grug(source_code: str) -> str:
 
     ast = parse_fn()
 
-    # 3. Code Generator: Flatten the AST into GRIR instructions
+    # 3. Code Generator: Flatten the AST into GRIR TAC instructions
     locals_decl: List[str] = []
     instructions: List[str] = []
     temp_count: int = 1
@@ -56,7 +69,16 @@ def compile_grug(source_code: str) -> str:
         nonlocal temp_count
         if node["type"] == "num":
             return node["val"]
-        elif node["type"] == "call":
+        elif node["type"] == "binop":
+            left_val = generate_expr(node["left"])
+            right_val = generate_expr(node["right"])
+            tmp = f"t{temp_count}"
+            temp_count += 1
+            locals_decl.append(f"local {tmp} bool")
+            instructions.append(f"{tmp} = {left_val} {node['op']} {right_val}")
+            return tmp
+        else:
+            assert node["type"] == "call"
             # Evaluate inner arguments first
             arg_vals = [generate_expr(arg) for arg in node["args"]]
 
@@ -68,7 +90,6 @@ def compile_grug(source_code: str) -> str:
                 instructions.append(f"call {node['name']}")
                 return None
             else:
-                # Need a temporary variable for nested calls
                 tmp = f"t{temp_count}"
                 temp_count += 1
                 locals_decl.append(f"local {tmp} number")

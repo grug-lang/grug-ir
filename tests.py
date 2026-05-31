@@ -25,10 +25,7 @@ def check_diff(out_path: Union[str, Path], expected_path: Union[str, Path]) -> N
     if out_lines != exp_lines:
         print(f"-> FAILED: Mismatch found for {out_file.name}", file=sys.stderr)
         diff = difflib.unified_diff(
-            exp_lines,
-            out_lines,
-            fromfile=str(exp_file),
-            tofile=str(out_file),
+            exp_lines, out_lines, fromfile=str(exp_file), tofile=str(out_file)
         )
         sys.stdout.writelines(diff)
         sys.exit(1)
@@ -36,26 +33,8 @@ def check_diff(out_path: Union[str, Path], expected_path: Union[str, Path]) -> N
     print(f"-> OK: {out_file.name} matches {exp_file.name}")
 
 
-def run_filecheck(actual_path: Path, expected_path: Path) -> None:
-    """Verifies actual_path using FileCheck directives found in expected_path."""
-    if not shutil.which("FileCheck"):
-        sys.exit("-> FAILED: 'FileCheck' not found in PATH. Please install LLVM tools.")
-
-    cmd = ["FileCheck", str(expected_path), "--input-file", str(actual_path)]
-
-    print(f"-> Running FileCheck on {actual_path.name}")
-    result = subprocess.run(cmd, capture_output=True, text=True)
-
-    if result.returncode != 0:
-        print(
-            f"-> FAILED: FileCheck verification failed for {actual_path.name}",
-            file=sys.stderr,
-        )
-        print(result.stdout, file=sys.stderr)
-        print(result.stderr, file=sys.stderr)
-        sys.exit(1)
-
-    print(f"-> OK: {actual_path.name} passed FileCheck verification")
+def get_llvm_config(args: List[str]) -> List[str]:
+    return subprocess.check_output(["llvm-config"] + args).decode().split()
 
 
 def run_test(test_dir: Path) -> None:
@@ -72,80 +51,75 @@ def run_test(test_dir: Path) -> None:
         shutil.rmtree(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Input/Output paths
     host_fns_grir = str(out_dir / "host_fns.grir")
     host_fns_ll = str(out_dir / "host_fns.ll")
-
     creeper_grug = str(test_dir / "creeper-Entity.grug")
-    creeper_grir = str(out_dir / "creeper-Entity.grir")  # Now pointing to .output
+    creeper_grir = str(out_dir / "creeper-Entity.grir")
     creeper_ll = str(out_dir / "creeper-Entity.ll")
-
-    tests_ll = str(out_dir / "tests.ll")
-    tests_bc = str(out_dir / "tests.bc")
     test_exe = str(out_dir / ("main.exe" if sys.platform == "win32" else "main.out"))
 
-    # 1. Run c2grir.py to yield the .grir TAC representation for host functions
+    # 1-4. Compile .c/.grug -> .grir -> .ll targets
     run_step(["coverage", "run", "--append", "c2grir.py", str(host_c), host_fns_grir])
-
-    # 2. Compile host_fns.grir to .ll via grir2ll.py
     run_step(["coverage", "run", "--append", "grir2ll.py", host_fns_grir, host_fns_ll])
-
-    # 3. Compile the creeper-Entity.grug file to .grir via compile_grug.py
     run_step(
         ["coverage", "run", "--append", "compile_grug.py", creeper_grug, creeper_grir]
     )
-
-    # 4. Compile the generated creeper-Entity.grir to .ll via grir2ll.py
     run_step(["coverage", "run", "--append", "grir2ll.py", creeper_grir, creeper_ll])
 
-    # 5. Optimized LTO Link: Generate binary bitcode (.bc)
-    run_step(
+    # 5. Compile JIT loader dynamically tracking LLVM system libs
+    llvm_cflags = get_llvm_config(["--cflags"])
+    llvm_ldflags = get_llvm_config(["--ldflags"])
+    llvm_libs = get_llvm_config(
         [
-            "clang",
-            "-O3",
-            "-fuse-ld=lld",
-            "-flto",
-            "-Wl,--plugin-opt=emit-llvm",
-            host_fns_ll,
-            creeper_ll,
-            str(main_c),
-            "-o",
-            tests_bc,
+            "--libs",
+            "core",
+            "executionengine",
+            "mcjit",
+            "irreader",
+            "linker",
+            "target",
+            "native",
+            "ipo",
         ]
     )
+    llvm_syslibs = get_llvm_config(["--system-libs"])
 
-    # 6. Disassemble binary bitcode to text IR (.ll) using clang
-    run_step(["clang", "-x", "ir", tests_bc, "-S", "-emit-llvm", "-o", tests_ll])
+    run_step(
+        ["clang", str(main_c), "-o", test_exe]
+        + llvm_cflags
+        + llvm_ldflags
+        + llvm_libs
+        + llvm_syslibs
+    )
 
-    # 7. Compile final executable from the optimized .ll
-    run_step(["clang", tests_ll, "-o", test_exe])
-
-    # 8. Execute program
+    # 6. Execute JIT
     run_step([f"./{test_exe}" if sys.platform != "win32" else test_exe])
 
-    # 9. Verify outputs
+    # 7. Verify outputs strictly
     print("\nVerifying outputs...")
-
-    # Use strict diff for stable IRs
     check_diff(host_fns_grir, expected_dir / "host_fns.grir")
     check_diff(host_fns_ll, expected_dir / "host_fns.ll")
     check_diff(creeper_grir, expected_dir / "creeper-Entity.grir")
+    check_diff(creeper_ll, expected_dir / "creeper-Entity.ll")
 
-    # Use FileCheck for Clang's unstable IR and the grug frontend output
-    run_filecheck(Path(tests_ll), expected_dir / "tests.ll")
-    run_filecheck(Path(creeper_ll), expected_dir / "creeper-Entity.ll")
+    # 8. Run FileCheck against the generated mods.ll
+    run_step(
+        [
+            "FileCheck",
+            str(expected_dir / "mods.ll"),
+            "--input-file",
+            str(out_dir / "mods.ll"),
+        ]
+    )
 
     print(f"\nTest '{test_dir.name}' completed successfully.")
 
 
 def main() -> None:
     tests_dir = Path("tests")
-
     test_dirs = sorted(p for p in tests_dir.iterdir() if p.is_dir())
-
     for test_dir in test_dirs:
         run_test(test_dir)
-
     print("\nAll tests completed successfully.")
 
 

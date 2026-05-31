@@ -1,7 +1,17 @@
 export_fn tick
 local t1 number
-arg 4
-arg 2
+local t2 bool
+local t3 number
+local t4 bool
+arg 10
+arg 5
 t1 = call min
-arg t1
-call print_number
+t2 = t1 == 5
+arg t2
+call assert
+arg 10
+arg 5
+t3 = call max
+t4 = t3 == 10
+arg t4
+call assert
