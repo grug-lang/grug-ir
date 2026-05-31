@@ -85,7 +85,7 @@ L3:
 
 ## Complex grug IR example
 
-Grug IR uses a [Three-Address Code](https://en.wikipedia.org/wiki/Three-address_code) format that handles function calls, arguments, and variable assignment. When `compile_grug.py` processes grug code, it flattens expressions into `arg` instructions followed by a `call` instruction.
+Grug IR uses a linear format that forbids nested expressions to ensure simplicity and readability. By mandating that arguments must be atomic (constants or variables, aka [A-normal form](https://en.wikipedia.org/wiki/A-normal_form)) rather than arbitrary expressions, we eliminate the need for recursive descent parsing in the compiler backend. When `compile_grug.py` processes grug code, it flattens complex logic into a sequence of straightforward assignments, where each line performs exactly one operation.
 
 Given this grug code in `tests/minmax/creeper-Entity.grug`:
 ```py
