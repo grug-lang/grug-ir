@@ -142,4 +142,4 @@ pre-commit run --all-files
 
 ## Issue Tracking & Project Plan
 
-See GitHub's [Issues](https://github.com/grug-lang/grug-ir/issues) tab.
+See the repository's [Issues](https://github.com/grug-lang/grug-ir/issues) tab.
