@@ -30,18 +30,22 @@ graph TD
 
 ## Simple grug IR example
 
-Here is the layout of `tests/minmax/`:
+The `tests/minmax/` directory serves as the canonical example of how host functions and grug code interoperate.
 ```
 tests/minmax
+├── creeper-Entity.grug
 ├── expected
+│   ├── creeper-Entity.grir
+│   ├── creeper-Entity.ll
 │   ├── host_fns.grir
 │   ├── host_fns.ll
-│   └── tests.ll
-├── host_fns.c
-└── main.c
+│   └── mods.ll
+└── host_fns.c
 ```
 
-It proves that these host functions in `host_fns.c`:
+This setup demonstrates how the `host_fns.c` file is compiled to grug IR (`.grir`) using `c2grir.py`.
+
+The `host_fns.c` file provides:
 ```c
 double min(double a, double b) {
     return a < b ? a : b;
@@ -50,131 +54,70 @@ double min(double a, double b) {
 double max(double a, double b) {
     return a > b ? a : b;
 }
-```
 
-Which are tested using `assert()` calls in `main.c`:
-```c
-#include <assert.h>
-#include <stdio.h>
-
-// Declare the host functions
-extern double min(double a, double b);
-extern double max(double a, double b);
-
-int main() {
-    // Test min()
-    assert(min(5.0, 10.0) == 5.0);
-    assert(min(10.0, 5.0) == 5.0);
-    assert(min(3.14, 3.14) == 3.14);
-
-    // Test max()
-    assert(max(5.0, 10.0) == 10.0);
-    assert(max(10.0, 5.0) == 10.0);
-    assert(max(3.14, 3.14) == 3.14);
-
-    printf("All host function assertions passed successfully!\n");
+void assert(bool condition) {
+    if (!condition) {
+        assert_failed();
+    }
 }
 ```
 
-Successfully get optimized away in `expected/tests.ll`, where only the `printf` (`puts`) and implicit `return 0;` remain:
-```ll
-; CHECK-LABEL: define dso_local noundef i32 @main
-; CHECK-NEXT:  {{%[0-9]+}} = tail call i32 @puts(ptr nonnull dereferenceable(1) @str)
-; CHECK-NEXT:  ret i32 0
-; CHECK-NEXT: }
+Running `c2grir.py` produces `expected/host_fns.grir`:
 ```
-
-Simple host functions can be written in any language; `c2grir.py` compiles `host_fns.c` to `expected/host_fns.grir`:
-```
-host_fn min
-param a number
-param b number
-returns number
-if a >= b goto L1
-return a
+host min(a: number, b: number) number
+    if a >= b goto L1
+    return a
 L1:
-return b
-host_fn max
-param a number
-param b number
-returns number
-if a <= b goto L2
-return a
+    return b
+
+host max(a: number, b: number) number
+    if a <= b goto L2
+    return a
 L2:
-return b
-```
+    return b
 
-The script `grir2ll.py` turns it into the LLVM IR `expected/host_fns.ll`, but you can easily modify it to target other popular IRs:
-```ll
-define double @min(double %a, double %b) {
-entry:
-  %cmp0 = fcmp oge double %a, %b
-  br i1 %cmp0, label %L1, label %fallthrough0
-
-fallthrough0:
-  ret double %a
-
-L1:
-  ret double %b
-}
-
-define double @max(double %a, double %b) {
-entry:
-  %cmp0 = fcmp ole double %a, %b
-  br i1 %cmp0, label %L2, label %fallthrough0
-
-fallthrough0:
-  ret double %a
-
-L2:
-  ret double %b
-}
+host assert(condition: bool)
+    if condition != 0 goto L3
+    call assert_failed
+L3:
+    return
 ```
 
 ## Complex grug IR example
 
-If we value human readability (infix notation) over simplicity (prefix notation) for `.grir`, this function from the grug readme's [example fibonacci program](https://github.com/grug-lang/grug/blob/main/README.md#example):
+Grug IR uses a [Three-Address Code](https://en.wikipedia.org/wiki/Three-address_code) format that handles function calls, arguments, and variable assignment. When `compile_grug.py` processes grug code, it flattens expressions into `arg` instructions followed by a `call` instruction.
+
+Given this grug code in `tests/minmax/creeper-Entity.grug`:
 ```py
-local _fib_list(n: number) List[number] {
-    fib_list: List[number] = List()
-
-    memo: Dict[number, number] = Dict()
-
-    i: number = 0
-    while i < n {
-        fib_list.append(_fib(i, memo))
-        i = i + 1
-    }
-
-    return fib_list
+export tick() {
+    assert(min(10, 5) == 5)
+    assert(max(10, 5) == 10)
 }
 ```
 
-Will be compiled to this `.grir` file:
+`compile_grug.py` generates the following `.grir` representation, found in `tests/minmax/expected/creeper-Entity.grir`:
 ```
-local_fn _fib_list
-param n number
-returns id
-local fib_list id
-local memo id
-local i number
-local t1 id
-fib_list = call List
-memo = call Dict
-i = 0
-L1:
-if i >= n goto L2
-arg i
-arg memo
-t1 = call _fib
-arg fib_list
-arg t1
-call List_append
-i = i + 1
-goto L1
-L2:
-return fib_list
+export tick()
+    arg 10
+    arg 5
+    t1: number = call min
+
+    t2: bool = t1 == 5
+    arg t2
+    call assert
+
+    arg 10
+    arg 5
+    t3: number = call max
+
+    t4: bool = t3 == 10
+    arg t4
+    call assert
+
+    return
 ```
+
+This format ensures that arguments are pushed onto the stack via `arg` before invoking the function, and return values are captured into temporary variables (e.g., `t1`, `t3`) when necessary for further operations.
 
 ## Running `tests.py`
 
