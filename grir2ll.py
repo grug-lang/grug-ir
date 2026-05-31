@@ -1,10 +1,12 @@
 import argparse
+import re
 from pathlib import Path
 from typing import Dict, List, Set, Tuple
 
 
 def compile_grir_to_ll(grir_text: str) -> str:
     ll_lines: List[str] = []
+    # Stripping handles the 4-space indentation requirement
     lines: List[str] = [line.strip() for line in grir_text.splitlines() if line.strip()]
 
     in_func: bool = False
@@ -22,12 +24,12 @@ def compile_grir_to_ll(grir_text: str) -> str:
     args_stack: List[Tuple[str, str]] = []
     declarations: Set[Tuple[str, str, Tuple[str, ...]]] = set()
 
-    # Map grug types to LLVM types
     type_map: Dict[str, str] = {
         "number": "double",
         "id": "i64",
         "bool": "i1",
         "void": "void",
+        "": "void",  # Handle empty return type for export
     }
 
     def get_val(op: str) -> Tuple[str, str]:
@@ -51,47 +53,48 @@ def compile_grir_to_ll(grir_text: str) -> str:
 
     i: int = 0
     while i < len(lines):
-        parts: List[str] = lines[i].split()
-        cmd: str = parts[0]
+        line = lines[i]
+        parts = line.split()
+        cmd = parts[0]
 
-        if cmd in ("host_fn", "local_fn", "export_fn"):
+        # Handle function header (host or export)
+        if cmd in ("host", "export"):
             if in_func:
-                last_line: str = ll_lines[-1].strip() if ll_lines else ""
                 ll_lines.append("}\n")
 
-            in_func = True
-            func_name = parts[1]
+            # Parse signature: (host|export) name(a: type, b: type) [type]
+            match = re.match(r"(?:host|export) (\w+)\((.*)\)(.*)", line)
+            assert match, f"Invalid function header: {line}"
+            func_name = match.group(1)
+            params_str = match.group(2)
+            ret_part = match.group(3).strip()
+
+            # Set return type
+            ret_type = type_map.get(ret_part, "void")
+
+            # Parse params
             params_list: List[Tuple[str, str]] = []
             params_map.clear()
+            if params_str.strip():
+                for p in params_str.split(","):
+                    p_name, p_type = [x.strip() for x in p.split(":")]
+                    p_llvm_type = type_map.get(p_type, "double")
+                    params_list.append((p_name, p_llvm_type))
+                    params_map[p_name] = p_llvm_type
+
+            in_func = True
             locals_map.clear()
             args_stack.clear()
-
             cmp_counter = 0
             fallthrough_counter = 0
             load_counter = 0
             call_counter = 0
             op_counter = 0
-            ret_type = "void"
-            i += 1
-
-            while i < len(lines):
-                sub_parts: List[str] = lines[i].split()
-                if sub_parts[0] == "param":
-                    p_name: str = sub_parts[1]
-                    p_type: str = type_map.get(sub_parts[2], "double")
-                    params_list.append((p_name, p_type))
-                    params_map[p_name] = p_type
-                    i += 1
-                elif sub_parts[0] == "returns":
-                    ret_type = type_map.get(sub_parts[1], "void")
-                    i += 1
-                    break
-                else:
-                    break
 
             param_str: str = ", ".join(f"{t} %{n}" for n, t in params_list)
             ll_lines.append(f"define {ret_type} @{func_name}({param_str}) {{")
             ll_lines.append("entry:")
+            i += 1
             continue
 
         elif cmd == "local":
@@ -191,9 +194,11 @@ def compile_grir_to_ll(grir_text: str) -> str:
             ll_lines.append(f"\n{fallthrough_label}:")
 
         elif cmd == "return":
-            assert len(parts) > 1
-            ty, val = get_val(parts[1])
-            ll_lines.append(f"  ret {ret_type} {val}")
+            if len(parts) > 1:
+                ty, val = get_val(parts[1])
+                ll_lines.append(f"  ret {ret_type} {val}")
+            else:
+                ll_lines.append(f"  ret void")
 
         elif cmd.endswith(":"):
             label_name = cmd[:-1]
@@ -205,17 +210,14 @@ def compile_grir_to_ll(grir_text: str) -> str:
         i += 1
 
     if in_func:
-        last_line = ll_lines[-1].strip() if ll_lines else ""
-        if ret_type == "void" and not last_line.startswith(("return", "br")):
-            ll_lines.append("  ret void")
         ll_lines.append("}\n")
 
     decl_lines: List[str] = []
+    # Updated to identify both host and export definitions
     defined_funcs: Set[str] = {
-        line.strip().split()[1]
+        line.split()[1].split("(")[0]
         for line in lines
-        if line.strip().split()
-        and line.strip().split()[0] in ("host_fn", "local_fn", "export_fn")
+        if line.startswith(("host ", "export "))
     }
 
     for f_name, r_ty, arg_types in sorted(list(declarations)):

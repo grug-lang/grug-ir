@@ -99,8 +99,13 @@ def compile_grug(source_code: str) -> str:
     for stmt in ast["body"]:
         generate_expr(stmt, is_stmt=True)
 
-    # Combine into final GRIR format
-    lines: List[str] = [f"export_fn {ast['name']}"] + locals_decl + instructions
+    # Combine into final GRIR format with 4-space indentation
+    header = f"export {ast['name']}()"
+    indented_locals = [f"    {line}" for line in locals_decl]
+    indented_instrs = [f"    {line}" for line in instructions]
+
+    # All functions must end with a return
+    lines: List[str] = [header] + indented_locals + indented_instrs + ["    return"]
     return "\n".join(lines) + "\n"
 
 

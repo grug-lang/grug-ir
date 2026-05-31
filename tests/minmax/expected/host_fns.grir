@@ -1,22 +1,17 @@
-host_fn min
-param a number
-param b number
-returns number
-if a >= b goto L1
-return a
+host min(a: number, b: number) number
+    if a >= b goto L1
+    return a
 L1:
-return b
-host_fn max
-param a number
-param b number
-returns number
-if a <= b goto L2
-return a
+    return b
+
+host max(a: number, b: number) number
+    if a <= b goto L2
+    return a
 L2:
-return b
-host_fn assert
-param condition bool
-returns void
-if condition != 0 goto L3
-call assert_failed
+    return b
+
+host assert(condition: bool)
+    if condition != 0 goto L3
+    call assert_failed
 L3:
+    return

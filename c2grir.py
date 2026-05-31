@@ -32,7 +32,7 @@ def expr_to_str(node):
 
 class GrirGenerator:
     def __init__(self):
-        self.lines = []
+        self.functions = []  # Store function blocks separately to join with \n\n
         self._label_counter = 0
 
     def _new_label(self):
@@ -42,32 +42,35 @@ class GrirGenerator:
     def generate(self, ast):
         for node in ast.ext:
             if isinstance(node, c_ast.FuncDef):
+                self.lines = []  # Start new function block
                 self._emit_func(node)
-        return "\n".join(self.lines) + "\n"
+                self.functions.append("\n".join(self.lines))
+        return "\n\n".join(self.functions) + "\n"
 
     def _emit_func(self, func_def):
         decl = func_def.decl
         func_decl = decl.type
 
-        self.lines.append(f"host_fn {decl.name}")
-
+        # Build signature: host name(a: number, b: number) number
+        params = []
         if func_decl.args is not None:
             for param in func_decl.args.params:
-                param_type = c_type_to_grir(param.type)
-                self.lines.append(f"param {param.name} {param_type}")
+                p_type = c_type_to_grir(param.type)
+                params.append(f"{param.name}: {p_type}")
 
+        param_str = ", ".join(params)
         ret_type = c_type_to_grir(func_decl.type)
-        self.lines.append(f"returns {ret_type}")
+        header = f"host {decl.name}({param_str})"
+        if ret_type != "void":
+            header += f" {ret_type}"
+        self.lines.append(header)
+
         self._emit_compound(func_def.body)
 
     def _emit_compound(self, compound):
         if compound.block_items:
-            stmts = compound.block_items
-            i = 0
-            while i < len(stmts):
-                stmt = stmts[i]
+            for stmt in compound.block_items:
                 self._emit_stmt(stmt)
-                i += 1
 
     def _emit_stmt(self, stmt):
         if isinstance(stmt, c_ast.Return):
@@ -76,27 +79,29 @@ class GrirGenerator:
             self._emit_if(stmt)
         elif isinstance(stmt, c_ast.FuncCall):
             self._emit_func_call(stmt)
-        else:
-            assert isinstance(stmt, c_ast.Compound)
+        elif isinstance(stmt, c_ast.Compound):
             self._emit_compound(stmt)
 
     def _emit_if(self, if_stmt):
         cond = if_stmt.cond
         label = self._new_label()
 
+        # Handle logic: only simple 'if !condition' is supported in existing logic
         if isinstance(cond, c_ast.UnaryOp) and cond.op == "!":
             var_name = expr_to_str(cond.expr)
-            self.lines.append(f"if {var_name} != 0 goto {label}")
+            self.lines.append(f"    if {var_name} != 0 goto {label}")
 
         self._emit_stmt(if_stmt.iftrue)
         self.lines.append(f"{label}:")
+        # Ensure we emit a return if implied by the logic
+        if not isinstance(if_stmt.iftrue, c_ast.Return):
+            self.lines.append("    return")
 
     def _emit_func_call(self, call):
         name = call.name.name
-        self.lines.append(f"call {name}")
+        self.lines.append(f"    call {name}")
 
     def _emit_return(self, ret):
-        assert ret.expr
         assert isinstance(ret.expr, c_ast.TernaryOp)
         self._emit_ternary_return(ret.expr)
 
@@ -107,17 +112,17 @@ class GrirGenerator:
         left = expr_to_str(cond.left)
         right = expr_to_str(cond.right)
 
-        self.lines.append(f"if {left} {inv_op} {right} goto {label}")
-        self.lines.append(f"return {expr_to_str(ternary.iftrue)}")
+        self.lines.append(f"    if {left} {inv_op} {right} goto {label}")
+        self.lines.append(f"    return {expr_to_str(ternary.iftrue)}")
         self.lines.append(f"{label}:")
-        self.lines.append(f"return {expr_to_str(ternary.iffalse)}")
+        self.lines.append(f"    return {expr_to_str(ternary.iffalse)}")
 
 
 def main():
     parser = argparse.ArgumentParser(
         description="Compile C host functions to grug IR (.grir)."
     )
-    parser.add_argument("input", help="Path to the input C file (e.g., host_fns.c)")
+    parser.add_argument("input", help="Path to the input C file")
     parser.add_argument("output", help="Path for the output .grir file")
     args = parser.parse_args()
 
