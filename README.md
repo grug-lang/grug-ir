@@ -34,7 +34,7 @@ graph TD
 * **Generic Storage:** Generics exist strictly for the frontend to perform type-checking. During compilation to `.grir` and `.grbc` (grug bitcode), generic types such as `List[number]` are simplified and stored explicitly as `u64` IDs rather than complex structures.
 * **No SSA Form:** The IR avoids Static Single-Assignment (SSA) form, as phi nodes introduce extra complexity that backends can just deduce. Keeping the IR simple ensures we don't have to pass AST node struct pointers to simple backends.
 
-## Simple grug IR example
+## Example
 
 The `tests/minmax/` directory serves as the canonical example of how host functions and grug code interoperate:
 ```
@@ -89,8 +89,6 @@ L3:
     return
 ```
 
-## Complex grug IR example
-
 When `compile_grug.py` processes grug code, it flattens complex logic into a sequence of straightforward assignments, where each line performs exactly one operation.
 
 Given this grug code in `tests/minmax/creeper-Entity.grug`:
@@ -116,6 +114,14 @@ export tick()
 ```
 
 This format ensures that function calls are natively formatted, and return values are captured into temporary variables (e.g., `t1`, `t3`) when necessary for further operations.
+
+At runtime `program.c` merges `creeper-Entity.ll` with `host_fns.ll`, where `tests/minmax/expected/mods.ll` asserts that the asserts are successfully optimized away by LLVM:
+```ll
+define void @tick() local_unnamed_addr #0 {
+assert.exit2:
+  ret void
+}
+```
 
 ## Running `tests.py`
 
