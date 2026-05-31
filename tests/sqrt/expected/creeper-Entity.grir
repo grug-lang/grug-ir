@@ -1,0 +1,10 @@
+export tick()
+    t1: number = sqrt(9)
+
+    t2: bool = t1 == 3
+    assert(t2)
+
+    t3: number = sqrt(4)
+
+    t4: bool = t3 == 2
+    assert(t4)

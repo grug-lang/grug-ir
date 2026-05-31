@@ -1,0 +1,4 @@
+export tick() {
+    assert(sqrt(9) == 3)
+    assert(sqrt(4) == 2)
+}
