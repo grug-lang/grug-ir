@@ -28,10 +28,11 @@ jobs:
 
           sudo apt-get install -y clang-22 llvm-22-tools lld-22
 
-          sudo ln -sf /usr/bin/clang-22    /usr/bin/clang
-          sudo ln -sf /usr/bin/lld-22      /usr/bin/lld
-          sudo ln -sf /usr/bin/lld-22      /usr/bin/ld.lld
-          sudo ln -sf /usr/bin/FileCheck-22 /usr/bin/FileCheck
+          sudo ln -sf /usr/bin/clang-22       /usr/bin/clang
+          sudo ln -sf /usr/bin/lld-22         /usr/bin/lld
+          sudo ln -sf /usr/bin/lld-22         /usr/bin/ld.lld
+          sudo ln -sf /usr/bin/FileCheck-22   /usr/bin/FileCheck
+          sudo ln -sf /usr/bin/llvm-config-22 /usr/bin/llvm-config
 
       - name: Install pyenv and build dependencies
         run: |
