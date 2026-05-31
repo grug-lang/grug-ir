@@ -87,12 +87,14 @@ def compile_grug(source_code: str) -> str:
 
             if is_stmt:
                 instructions.append(f"call {node['name']}")
+                instructions.append("")
                 return None
             else:
                 tmp = f"t{temp_count}"
                 temp_count += 1
                 # Declare inline with type
                 instructions.append(f"{tmp}: number = call {node['name']}")
+                instructions.append("")
                 return tmp
 
     for stmt in ast["body"]:
@@ -100,7 +102,7 @@ def compile_grug(source_code: str) -> str:
 
     # Combine into final GRIR format with 4-space indentation
     header = f"export {ast['name']}()"
-    indented_instrs = [f"    {line}" for line in instructions]
+    indented_instrs = [f"    {line}" if line else "" for line in instructions]
 
     # All functions must end with a return
     lines: List[str] = [header] + indented_instrs + ["    return"]
