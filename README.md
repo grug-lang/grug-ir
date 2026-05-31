@@ -51,7 +51,7 @@ tests/minmax
 ```
 
 Here is `tests/minmax/creeper-Entity.grug`:
-```py
+```rs
 export tick() {
     assert(min(10, 5) == 5)
     assert(max(10, 5) == 10)
