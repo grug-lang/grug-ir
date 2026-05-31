@@ -2,7 +2,7 @@
 
 This [grug](https://github.com/grug-lang/grug) repository demonstrates:
 1. How grug can be compiled to grug IR, and how that can easily be transpiled to LLVM IR.
-2. How simple host functions in any language can be compiled to grug IR followed by LLVM IR *ahead of time*. That LLVM IR is loaded *at runtime*. This makes host functions inlinable intrinsics when compiling grug files, which gives grug a massive performance edge over lots of other languages that can't get rid of FFI overhead from constant host↔mod context switching.
+2. How simple host functions, written in any language, can be compiled to grug IR and then LLVM IR *ahead of time*. Since this LLVM IR is loaded *at runtime*, these host functions become inlinable intrinsics when compiling grug files. This provides grug with a significant performance advantage over lots of other languages that can't get rid of FFI overhead from constant host↔mod context switching.
 
 ```mermaid
 %%{init: {'themeVariables': {'edgeLabelBackground': 'transparent'}}}%%
@@ -30,13 +30,13 @@ graph TD
 
 ## Architecture & Design Principles
 
-* **Human Readability Over Strict TAC:** The `.grir` (grug IR) representation moves away from strict [Three-Address Code](https://en.wikipedia.org/wiki/Three-address_code) (TAC) in favor of increased human readability. By allowing variables and constant arguments to be passed directly within the function call (e.g., `t1: number = min(10, 5)`, known as [ANF](https://en.wikipedia.org/wiki/A-normal_form)) instead of using stack pushes, the format remains linear while staying highly intuitive. This atomic argument structure eliminates the need for recursive descent parsing in the compiler backend.
-* **Generic Storage:** Generics exist strictly for the frontend to perform type-checking. During compilation to `.grir` and `.grbc` (grug bitcode), generic types such as `List[number]` are simplified and stored explicitly as `u64` IDs rather than complex structures.
-* **No SSA Form:** The IR avoids Static Single-Assignment (SSA) form, as phi nodes introduce extra complexity that backends can just deduce. Keeping the IR simple ensures we don't have to pass AST node struct pointers to simple backends.
+* **Human Readability Over Strict TAC:** The `.grir` (grug IR) representation moves away from strict [Three-Address Code](https://en.wikipedia.org/wiki/Three-address_code) (TAC) to prioritize human readability. By allowing variables and constant arguments to be passed directly within function calls (e.g., `t1: number = min(10, 5)`, known as [ANF](https://en.wikipedia.org/wiki/A-normal_form)) rather than utilizing stack pushes, the format remains linear and intuitive. This atomic argument structure eliminates the need for recursive descent parsing in the compiler backend.
+* **Generic Storage:** Generics exist solely for the frontend to perform type-checking. During compilation to `.grir` and `.grbc` (grug bitcode), generic types such as `List[number]` are simplified and stored explicitly as `u64` IDs rather than as complex structures.
+* **No SSA Form:** The IR avoids Static Single-Assignment (SSA) form, as phi nodes introduce complexity that backends can deduce independently. Keeping the IR simple ensures we do not need to pass AST node struct pointers to simple backends.
 
 ## Example
 
-The `tests/minmax/` directory shows how host functions get inlined into grug code:
+The `tests/minmax/` directory demonstrates how host functions are inlined into grug code:
 ```
 tests/minmax
 ├── creeper-Entity.grug
@@ -49,7 +49,7 @@ tests/minmax
 └── host_fns.c
 ```
 
-Here is its `tests/minmax/creeper-Entity.grug`:
+Here is `tests/minmax/creeper-Entity.grug`:
 ```py
 export tick() {
     assert(min(10, 5) == 5)
@@ -71,7 +71,7 @@ export tick()
     assert(t4)
 ```
 
-Here is its `tests/minmax/host_fns.c`:
+Here is `tests/minmax/host_fns.c`:
 ```c
 double min(double a, double b) {
     return a < b ? a : b;
@@ -109,7 +109,7 @@ L3:
     return
 ```
 
-The `program.c` file at the root of the repository merges `creeper-Entity.ll` with `host_fns.ll` at runtime with LLVM's C API. The file `tests/minmax/expected/mods.ll` uses [FileCheck](https://llvm.org/docs/CommandGuide/FileCheck.html) to assert that LLVM was able to optimize the asserts away, because it was able to prove they always hold true:
+The `program.c` file at the root of the repository merges `creeper-Entity.ll` with `host_fns.ll` at runtime using LLVM's C API. The file `tests/minmax/expected/mods.ll` uses [FileCheck](https://llvm.org/docs/CommandGuide/FileCheck.html) to verify that LLVM successfully optimized the asserts away, confirming they always hold true:
 ```ll
 define void @tick() local_unnamed_addr #0 {
 assert.exit2:
@@ -119,7 +119,7 @@ assert.exit2:
 
 ## Running `tests.py`
 
-This will require you to have Clang and Clang's [FileCheck](https://llvm.org/docs/CommandGuide/FileCheck.html) installed:
+This requires you to have Clang and Clang's [FileCheck](https://llvm.org/docs/CommandGuide/FileCheck.html) installed:
 1. Run `pip install pycparser==2.21 pycparser-fake-libc==2.21 coverage==7.2.7`
 2. Run `rm -f .coverage && python tests.py && coverage report -m --fail-under=100`
 
