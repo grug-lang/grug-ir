@@ -36,7 +36,7 @@ graph TD
 
 ## Example
 
-The `tests/minmax/` directory serves as the canonical example of how host functions and grug code interoperate:
+The `tests/minmax/` directory shows how host functions get inlined into grug code:
 ```
 tests/minmax
 ├── creeper-Entity.grug
@@ -49,9 +49,29 @@ tests/minmax
 └── host_fns.c
 ```
 
-This setup demonstrates how the `host_fns.c` file is compiled to grug IR (`.grir`) using `c2grir.py`.
+Here is its `tests/minmax/creeper-Entity.grug`:
+```py
+export tick() {
+    assert(min(10, 5) == 5)
+    assert(max(10, 5) == 10)
+}
+```
 
-The `host_fns.c` file provides:
+Running `compile_grug.py` outputs this `tests/minmax/.output/creeper-Entity.grir`:
+```
+export tick()
+    t1: number = min(10, 5)
+
+    t2: bool = t1 == 5
+    assert(t2)
+
+    t3: number = max(10, 5)
+
+    t4: bool = t3 == 10
+    assert(t4)
+```
+
+Here is its `tests/minmax/host_fns.c`:
 ```c
 double min(double a, double b) {
     return a < b ? a : b;
@@ -68,7 +88,7 @@ void assert(bool condition) {
 }
 ```
 
-Running `c2grir.py` produces `expected/host_fns.grir`:
+Running `c2grir.py` outputs this `tests/minmax/.output/host_fns.grir`:
 ```
 host min(a: number, b: number) number
     if a >= b goto L1
@@ -89,33 +109,7 @@ L3:
     return
 ```
 
-When `compile_grug.py` processes grug code, it flattens complex logic into a sequence of straightforward assignments, where each line performs exactly one operation.
-
-Given this grug code in `tests/minmax/creeper-Entity.grug`:
-```py
-export tick() {
-    assert(min(10, 5) == 5)
-    assert(max(10, 5) == 10)
-}
-```
-
-`compile_grug.py` generates the following `.grir` representation, found in `tests/minmax/expected/creeper-Entity.grir`:
-```
-export tick()
-    t1: number = min(10, 5)
-
-    t2: bool = t1 == 5
-    assert(t2)
-
-    t3: number = max(10, 5)
-
-    t4: bool = t3 == 10
-    assert(t4)
-```
-
-This format ensures that function calls are natively formatted, and return values are captured into temporary variables (e.g., `t1`, `t3`) when necessary for further operations.
-
-At runtime `program.c` merges `creeper-Entity.ll` with `host_fns.ll`, where `tests/minmax/expected/mods.ll` checks that LLVM was able to optimize the asserts away because it was able to see they always hold true:
+The `program.c` file at the root of the repository merges `creeper-Entity.ll` with `host_fns.ll` at runtime with LLVM's C API. The file `tests/minmax/expected/mods.ll` uses [FileCheck](https://llvm.org/docs/CommandGuide/FileCheck.html) to assert that LLVM was able to optimize the asserts away, because it was able to prove they always hold true:
 ```ll
 define void @tick() local_unnamed_addr #0 {
 assert.exit2:
