@@ -20,13 +20,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache Clang/LLVM APT packages
+        uses: actions/cache@v4
+        with:
+          path: apt-cache
+          key: ${{ runner.os }}-apt-llvm-22-v1
+
       - name: Install specific Clang version
         run: |
+          # Redirect APT archives to a local directory for caching
+          mkdir -p apt-cache/partial
+          echo 'Dir::Cache::Archives "'$(pwd)'/apt-cache";' | sudo tee /etc/apt/apt.conf.d/99-local-archives
+
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
           sudo ./llvm.sh 22
 
           sudo apt-get install -y clang-22 llvm-22-tools lld-22
+
+          # Remove the config so it doesn't interfere with downstream apt-get steps
+          sudo rm /etc/apt/apt.conf.d/99-local-archives
+          
+          # Fix permissions so the GitHub Actions runner can save the cache post-run
+          sudo chown -R $(whoami):$(whoami) apt-cache
 
           sudo ln -sf /usr/bin/clang-22       /usr/bin/clang
           sudo ln -sf /usr/bin/lld-22         /usr/bin/lld
