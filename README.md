@@ -33,7 +33,7 @@ graph TD
 
 * **Human Readability Over Strict TAC:** The `.grir` (grug IR) representation moves away from strict [Three-Address Code](https://en.wikipedia.org/wiki/Three-address_code) (TAC) to prioritize human readability. By allowing variables and constant arguments to be passed directly within function calls (e.g., `t1: number = min(10, 5)`, known as [ANF](https://en.wikipedia.org/wiki/A-normal_form)) rather than utilizing stack pushes, the format remains linear and intuitive. This atomic argument structure eliminates the need for recursive descent parsing in the compiler backend.
 * **Generic Storage:** Generics exist solely for the frontend to perform type-checking. During compilation to `.grir` and `.grbc` (grug bitcode), generic types such as `List[number]` are simplified and stored explicitly as `u64` IDs rather than as complex structures.
-* **No SSA Form:** The IR avoids Static Single-Assignment (SSA) form, as phi nodes introduce complexity that backends can deduce independently. Keeping the IR simple ensures we do not need to pass AST node struct pointers to simple backends.
+* **No SSA Form:** The IR avoids [Static Single-Assignment](https://en.wikipedia.org/wiki/Static_single-assignment_form) (SSA) form, as phi nodes introduce complexity that backends can deduce independently. Keeping the IR simple ensures we do not need to pass AST node struct pointers to simple backends.
 
 ## Example
 
