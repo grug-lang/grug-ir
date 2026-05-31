@@ -141,4 +141,4 @@ pre-commit run --all-files
 
 ## Issue Tracking & Project Plan
 
-All planned features, architecture rewrites, and CI pipeline enhancements for grug IR are tracked in the repository's [GitHub Issues](https://github.com/grug-lang/grug-ir/issues).
+See GitHub's [Issues](https://github.com/grug-lang/grug-ir/issues) tab.
