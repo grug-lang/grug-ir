@@ -34,6 +34,15 @@ jobs:
           path: ~/.pyenv
           key: ${{ runner.os }}-pyenv-${{ matrix.python-version }}
 
+      - name: Cache pip
+        id: cache-pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
       - name: Install specific Clang version
         run: |
           if [ "${{ steps.cache-llvm.outputs.cache-hit }}" = "true" ]; then
