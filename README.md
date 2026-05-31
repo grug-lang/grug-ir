@@ -59,7 +59,7 @@ export tick() {
 ```
 
 Running `compile_grug.py` outputs this `tests/minmax/.output/creeper-Entity.grir`:
-```
+```rs
 export tick()
     t1: number = min(10, 5)
 
@@ -90,7 +90,7 @@ void assert(bool condition) {
 ```
 
 Running `c2grir.py` outputs this `tests/minmax/.output/host_fns.grir`:
-```
+```rs
 host min(a: number, b: number) number
     if a >= b goto L1
     return a
