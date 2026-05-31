@@ -20,11 +20,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cache Clang/LLVM APT packages
+      - name: Cache LLVM 22 Toolchain Tarball
+        id: cache-llvm
         uses: actions/cache@v4
         with:
-          path: apt-cache
-          key: ${{ runner.os }}-apt-llvm-22-v1
+          path: ~/llvm-22-cache
+          key: ${{ runner.os }}-llvm-22-tar-v1
 
       - name: Cache pyenv and Python
         uses: actions/cache@v4
@@ -34,27 +35,28 @@ jobs:
 
       - name: Install specific Clang version
         run: |
-          # Redirect APT archives to a local directory for caching
-          mkdir -p apt-cache/partial
-          echo 'Dir::Cache::Archives "'$(pwd)'/apt-cache";' | sudo tee /etc/apt/apt.conf.d/99-local-archives
+          if [ "${{ steps.cache-llvm.outputs.cache-hit }}" = "true" ]; then
+            echo "Cache hit! Extracting pre-compiled LLVM 22 toolchain..."
+            sudo tar -I zstd -xf ~/llvm-22-cache/llvm-22.tar.zst -C /
+          else
+            echo "Cache miss! Installing LLVM 22 via APT..."
+            wget https://apt.llvm.org/llvm.sh
+            chmod +x llvm.sh
+            sudo ./llvm.sh 22
+            sudo apt-get install -y clang-22 llvm-22-tools lld-22
 
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh 22
+            echo "Packaging LLVM 22 toolchain into a local archive..."
+            mkdir -p ~/llvm-22-cache
+            sudo tar -I zstd -cf ~/llvm-22-cache/llvm-22.tar.zst -C / usr/lib/llvm-22
+            sudo chown -R $(whoami):$(whoami) ~/llvm-22-cache
+          fi
 
-          sudo apt-get install -y clang-22 llvm-22-tools lld-22
-
-          # Remove the config so it doesn't interfere with downstream apt-get steps
-          sudo rm /etc/apt/apt.conf.d/99-local-archives
-          
-          # Fix permissions so the GitHub Actions runner can save the cache post-run
-          sudo chown -R $(whoami):$(whoami) apt-cache
-
-          sudo ln -sf /usr/bin/clang-22       /usr/bin/clang
-          sudo ln -sf /usr/bin/lld-22         /usr/bin/lld
-          sudo ln -sf /usr/bin/lld-22         /usr/bin/ld.lld
-          sudo ln -sf /usr/bin/FileCheck-22   /usr/bin/FileCheck
-          sudo ln -sf /usr/bin/llvm-config-22 /usr/bin/llvm-config
+          # Establish explicit system symlinks to the toolchain binaries
+          sudo ln -sf /usr/lib/llvm-22/bin/clang       /usr/bin/clang
+          sudo ln -sf /usr/lib/llvm-22/bin/lld         /usr/bin/lld
+          sudo ln -sf /usr/lib/llvm-22/bin/lld         /usr/bin/ld.lld
+          sudo ln -sf /usr/lib/llvm-22/bin/FileCheck   /usr/bin/FileCheck
+          sudo ln -sf /usr/lib/llvm-22/bin/llvm-config /usr/bin/llvm-config
 
       - name: Install pyenv and build dependencies
         run: |
