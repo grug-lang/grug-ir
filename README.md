@@ -30,7 +30,7 @@ graph TD
 
 ## Architecture & Design Principles
 
-* **Human Readability Over Strict TAC:** The `.grir` representation moves away from strict Three-Address Code (TAC) in favor of increased human readability. By allowing arguments to be passed directly within the function call (e.g., `t1: number = min(10, 5)`) instead of using stack pushes, the format remains linear while staying highly intuitive. This atomic argument structure eliminates the need for recursive descent parsing in the compiler backend.
+* **Human Readability Over Strict TAC:** The `.grir` representation moves away from strict [Three-Address Code](https://en.wikipedia.org/wiki/Three-address_code) (TAC) in favor of increased human readability. By allowing arguments to be passed directly within the function call (e.g., `t1: number = min(10, 5)`) instead of using stack pushes, the format remains linear while staying highly intuitive. This atomic argument structure eliminates the need for recursive descent parsing in the compiler backend.
 * **Generic Storage:** Generics exist strictly for the frontend to perform type-checking. During compilation to `.grir` and `.grbc` (grug bitcode), generic types such as `List[number]` are simplified and stored explicitly as `u64` IDs rather than complex structures.
 * **No SSA Form:** The IR avoids Static Single-Assignment (SSA) form, as phi nodes introduce extra complexity that backends can just deduce. Keeping the IR simple ensures we don't have to pass AST node struct pointers to simple backends.
 
