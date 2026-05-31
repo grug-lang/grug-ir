@@ -40,13 +40,13 @@ graph TD
 The `tests/minmax/` directory demonstrates how host functions are inlined into grug code:
 ```
 tests/minmax
-├── creeper-Entity.grug
 ├── expected
 │   ├── creeper-Entity.grir
 │   ├── creeper-Entity.ll
 │   ├── host_fns.grir
 │   ├── host_fns.ll
 │   └── mods.ll
+├── creeper-Entity.grug
 └── host_fns.c
 ```
 
