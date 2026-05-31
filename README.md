@@ -109,7 +109,7 @@ L3:
     return
 ```
 
-The `program.c` file at the root of the repository merges `creeper-Entity.ll` with `host_fns.ll` at runtime using LLVM's C API. The file `tests/minmax/expected/mods.ll` uses [FileCheck](https://llvm.org/docs/CommandGuide/FileCheck.html) to verify that LLVM successfully optimized the asserts away, confirming they always hold true:
+The `program.c` file at the root of the repository merges `creeper-Entity.ll` with `host_fns.ll` at runtime using LLVM's C API. The file `tests/minmax/expected/mods.ll` uses [FileCheck](https://llvm.org/docs/CommandGuide/FileCheck.html) to verify that LLVM successfully optimized the asserts in `creeper-Entity.grug` away, confirming they always hold true:
 ```ll
 define void @tick() local_unnamed_addr #0 {
 assert.exit2:
