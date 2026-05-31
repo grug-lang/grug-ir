@@ -3,7 +3,7 @@
 This [grug](https://github.com/grug-lang/grug) repository demonstrates how:
 
 1. grug can be compiled to grug IR, and how grug IR can easily be transpiled to LLVM IR.
-2. Simple host functions, written in any language, can be compiled to grug IR and then LLVM IR *ahead of time*. Since this LLVM IR is loaded *at runtime*, these host functions become inlinable intrinsics when compiling grug files. This provides grug with a significant performance advantage over lots of other languages that can't get rid of FFI overhead from constant host↔mod context switching. grug-ir's CI also verifies across all benchmarks that `C -> LLVM IR` and `C -> grug IR -> LLVM IR` remain within 5% performance of each other.
+2. Simple host functions, written in any language, can be compiled to grug IR and then LLVM IR *ahead of time*. Since this LLVM IR is loaded *at runtime*, these host functions become inlinable intrinsics when compiling grug files. This provides grug with a significant performance advantage over lots of other languages that can't get rid of FFI overhead from constant host↔mod context switching. grug-ir's CI also verifies across all benchmarks that `C → LLVM IR` and `C → grug IR → LLVM IR` remain within 5% performance of each other.
 3. `grir2ll.py` is intentionally simple and can be easily rewritten to target other IRs or bytecode formats. Many games do not want the size and complexity of embedding LLVM, so grug IR is designed to stay lightweight and backend-agnostic.
 
 ```mermaid
@@ -15,7 +15,7 @@ graph TD
     classDef binary fill:#bbf7d0,stroke:#4ade80,color:#166534
 
     subgraph rt[runtime]
-        H[creeper-Entity.grug]:::source -->|compile| I[creeper-Entity.grir]:::grir
+        H[creeper-Entity.grug]:::source -→|compile| I[creeper-Entity.grir]:::grir
         I -->|grir2ll.py| J[creeper-Entity.ll]:::llir
     end
 
