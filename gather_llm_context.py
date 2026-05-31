@@ -9,7 +9,6 @@ IGNORE_FILES = {
     "generate_llm_prompt.py",
     ".coverage",  # Coverage data is large and irrelevant to code logic
     ".gitignore",  # Version control tooling
-    ".pre-commit-config.yaml",  # Formatting tooling
     "LICENSE",
 }
 
