@@ -115,7 +115,7 @@ export tick()
 
 This format ensures that function calls are natively formatted, and return values are captured into temporary variables (e.g., `t1`, `t3`) when necessary for further operations.
 
-At runtime `program.c` merges `creeper-Entity.ll` with `host_fns.ll`, where `tests/minmax/expected/mods.ll` asserts that the asserts are successfully optimized away by LLVM:
+At runtime `program.c` merges `creeper-Entity.ll` with `host_fns.ll`, where `tests/minmax/expected/mods.ll` checks that the asserts are successfully optimized away by LLVM:
 ```ll
 define void @tick() local_unnamed_addr #0 {
 assert.exit2:
