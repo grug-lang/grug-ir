@@ -25,7 +25,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/llvm-22-cache
-          key: ${{ runner.os }}-llvm-22-tar-v1
+          key: ${{ runner.os }}-llvm-22-tar-v2
 
       - name: Cache pyenv and Python
         uses: actions/cache@v4
@@ -38,6 +38,9 @@ jobs:
           if [ "${{ steps.cache-llvm.outputs.cache-hit }}" = "true" ]; then
             echo "Cache hit! Extracting pre-compiled LLVM 22 toolchain..."
             sudo tar -I zstd -xf ~/llvm-22-cache/llvm-22.tar.zst -C /
+            
+            # Refresh the dynamic linker cache so the OS registers the restored .so files
+            sudo ldconfig
           else
             echo "Cache miss! Installing LLVM 22 via APT..."
             wget https://apt.llvm.org/llvm.sh
@@ -47,7 +50,19 @@ jobs:
 
             echo "Packaging LLVM 22 toolchain into a local archive..."
             mkdir -p ~/llvm-22-cache
-            sudo tar -I zstd -cf ~/llvm-22-cache/llvm-22.tar.zst -C / usr/lib/llvm-22
+
+            # Query dpkg for all LLVM 22 related packages (and libipt2, an lldb dependency)
+            PKGS=$(dpkg-query -W -f='${binary:Package}\n' | grep -E 'clang.*22|llvm.*22|lld.*22|libipt2')
+
+            # Filter for actual files and symlinks, strip leading slashes for tar
+            dpkg-query -L $PKGS | sed 's/^\///' | while read -r f; do
+              if [ -f "/$f" ] || [ -L "/$f" ]; then
+                echo "$f"
+              fi
+            done > /tmp/llvm_files.txt
+
+            # Tar EXACTLY the files installed by apt, including all multiarch .so libraries
+            sudo tar -I zstd -cf ~/llvm-22-cache/llvm-22.tar.zst -C / -T /tmp/llvm_files.txt
             sudo chown -R $(whoami):$(whoami) ~/llvm-22-cache
           fi
 
@@ -57,10 +72,6 @@ jobs:
           sudo ln -sf /usr/lib/llvm-22/bin/lld         /usr/bin/ld.lld
           sudo ln -sf /usr/lib/llvm-22/bin/FileCheck   /usr/bin/FileCheck
           sudo ln -sf /usr/lib/llvm-22/bin/llvm-config /usr/bin/llvm-config
-          
-          # Fix the dynamic linker path so it can find libclang-cpp.so
-          echo "/usr/lib/llvm-22/lib" | sudo tee /etc/ld.so.conf.d/llvm-22.conf
-          sudo ldconfig
 
       - name: Install pyenv and build dependencies
         run: |
