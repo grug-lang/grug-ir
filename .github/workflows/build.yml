@@ -26,6 +26,12 @@ jobs:
           path: apt-cache
           key: ${{ runner.os }}-apt-llvm-22-v1
 
+      - name: Cache pyenv and Python
+        uses: actions/cache@v4
+        with:
+          path: ~/.pyenv
+          key: ${{ runner.os }}-pyenv-${{ matrix.python-version }}
+
       - name: Install specific Clang version
         run: |
           # Redirect APT archives to a local directory for caching
@@ -59,13 +65,17 @@ jobs:
             libncurses5-dev libncursesw5-dev libgdbm-dev uuid-dev \
             curl git wget
 
-          curl https://pyenv.run | bash
+          # Only run the installer if the directory wasn't restored from cache
+          if [ ! -d "$HOME/.pyenv" ]; then
+            curl https://pyenv.run | bash
+          fi
 
       - name: Install Python ${{ matrix.python-version }}
         run: |
           export PYENV_ROOT="$HOME/.pyenv"
           export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
 
+          # The -s flag tells pyenv to skip compilation if the version is already installed via cache
           pyenv install -s ${{ matrix.python-version }}
           pyenv global ${{ matrix.python-version }}
           python --version
