@@ -57,6 +57,10 @@ jobs:
           sudo ln -sf /usr/lib/llvm-22/bin/lld         /usr/bin/ld.lld
           sudo ln -sf /usr/lib/llvm-22/bin/FileCheck   /usr/bin/FileCheck
           sudo ln -sf /usr/lib/llvm-22/bin/llvm-config /usr/bin/llvm-config
+          
+          # Fix the dynamic linker path so it can find libclang-cpp.so
+          echo "/usr/lib/llvm-22/lib" | sudo tee /etc/ld.so.conf.d/llvm-22.conf
+          sudo ldconfig
 
       - name: Install pyenv and build dependencies
         run: |
