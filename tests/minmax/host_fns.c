@@ -1,6 +1,5 @@
 #include <stdbool.h>
 
-// Forward declaration of the runtime failure handler implemented in main.c
 void assert_failed(void);
 
 double min(double a, double b) {
