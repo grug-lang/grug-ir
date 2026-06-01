@@ -15,7 +15,7 @@ graph TD
     classDef binary fill:#bbf7d0,stroke:#4ade80,color:#166534
 
     subgraph rt[runtime]
-        H[creeper-Entity.grug]:::source -->|compile| I[creeper-Entity.grir]:::grir
+        H[creeper-Entity.grug]:::source -->|grug2grir.py| I[creeper-Entity.grir]:::grir
         I -->|grir2ll.py| J[creeper-Entity.ll]:::llir
     end
 
@@ -59,7 +59,7 @@ export tick() {
 }
 ```
 
-Running `compile_grug.py` outputs this `tests/minmax/.output/creeper-Entity.grir`:
+Running `grug2grir.py` outputs this `tests/minmax/.output/creeper-Entity.grir`:
 ```rs
 export tick()
     t1: number = min(10, 5)

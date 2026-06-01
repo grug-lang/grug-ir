@@ -92,7 +92,7 @@ def run_test(test_dir: Path, prog_exe: str) -> None:
     run_step(["coverage", "run", "--append", "c2grir.py", str(host_c), host_fns_grir])
     run_step(["coverage", "run", "--append", "grir2ll.py", host_fns_grir, host_fns_ll])
     run_step(
-        ["coverage", "run", "--append", "compile_grug.py", creeper_grug, creeper_grir]
+        ["coverage", "run", "--append", "grug2grir.py", creeper_grug, creeper_grir]
     )
     run_step(["coverage", "run", "--append", "grir2ll.py", creeper_grir, creeper_ll])
 

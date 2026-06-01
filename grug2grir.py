@@ -117,7 +117,7 @@ def compile_grug(source_code: str) -> str:
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:  # pragma: no cover
-        sys.exit("Usage: python compile_grug.py <input.grug> <output.grir>")
+        sys.exit("Usage: python grug2grir.py <input.grug> <output.grir>")
 
     with open(sys.argv[1], "r", encoding="utf-8") as f:
         source = f.read()
