@@ -6,8 +6,6 @@ This [grug](https://github.com/grug-lang/grug) repository demonstrates how:
 2. Simple host functions, written in any language, can be compiled to grug IR and then LLVM IR *ahead of time*. Since this LLVM IR is loaded *at runtime*, these host functions become inlinable intrinsics when compiling grug files. This provides grug with a significant performance advantage over lots of other languages that can't get rid of FFI overhead from constant host↔mod context switching. grug-ir's CI also verifies across all benchmarks that `C → LLVM IR` and `C → grug IR → LLVM IR` remain within 5% performance of each other.
 3. `grir2ll.py` is intentionally simple and can be easily rewritten to target other IRs or bytecode formats. Many games do not want the size and complexity of embedding LLVM, so grug IR is designed to stay lightweight and backend-agnostic.
 
-grug-ir ships one frontend, `c2grir.py`, which reads C. Getting host functions in any other language to `.grir` is up to you: either transpile to C with a tool that already exists for that language, such as [mrustc](https://github.com/thepowersgang/mrustc) for Rust or [solod](https://github.com/solod-dev/solod) for Go, or write your own frontend that emits `.grir` directly, like say `lisp2grir.py`. Once it is `.grir`, the rest of the pipeline does not care where it came from.
-
 ```mermaid
 %%{init: {'themeVariables': {'edgeLabelBackground': 'transparent'}}}%%
 graph TD
@@ -31,6 +29,10 @@ graph TD
     style aot fill:#eff6ff,stroke:#93c5fd,color:#1e3a8a
     style rt  fill:#faf5ff,stroke:#c4b5fd,color:#4c1d95
 ```
+
+## Host Functions in Other Languages
+
+grug-ir ships one frontend, `c2grir.py`, which reads C. Getting host functions in any other language to `.grir` is up to you: either transpile to C with a tool that already exists for that language, such as [mrustc](https://github.com/thepowersgang/mrustc) for Rust or [solod](https://github.com/solod-dev/solod) for Go, or write your own frontend that emits `.grir` directly, like say `lisp2grir.py`. Once it is `.grir`, the rest of the pipeline does not care where it came from.
 
 ## Architecture & Design Principles
 
