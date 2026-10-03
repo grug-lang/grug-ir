@@ -1,0 +1,5 @@
+host assert(condition: bool)
+    if condition != 0 goto L1
+    assert_failed()
+L1:
+    return

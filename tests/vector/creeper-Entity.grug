@@ -1,0 +1,9 @@
+export tick() {
+    v: Vec[number] = Vec()
+
+    v.push(1)
+    v.push(2)
+
+    assert(v.get(0) == 1)
+    assert(v.get(1) == 2)
+}
