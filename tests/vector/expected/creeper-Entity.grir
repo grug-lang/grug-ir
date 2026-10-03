@@ -7,8 +7,10 @@ export tick()
 
     t2: number = t1.get(0)
 
-    assert(t2 == 1)
+    t3: bool = t2 == 1
+    assert(t3)
 
-    t3: number = t1.get(1)
+    t4: number = t1.get(1)
 
-    assert(t3 == 2)
+    t5: bool = t4 == 2
+    assert(t5)
