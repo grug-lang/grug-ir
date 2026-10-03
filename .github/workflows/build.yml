@@ -118,7 +118,7 @@ jobs:
           export PYENV_ROOT="$HOME/.pyenv"
           export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$HOME/.local/bin:$PATH"
 
-          pip install black --user
+          pip install black==24.10.0 --user
           black --check .
 
       - name: Install Python dependencies (Python ${{ matrix.python-version }})
