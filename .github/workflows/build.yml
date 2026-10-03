@@ -3,8 +3,6 @@ name: Test
 on:
   push:
   pull_request:
-  schedule:
-    - cron: "0 2 * * *" # nightly at 02:00 UTC
 
 permissions:
   contents: read
@@ -120,16 +118,16 @@ jobs:
           export PYENV_ROOT="$HOME/.pyenv"
           export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$HOME/.local/bin:$PATH"
 
-          pip install black --user
+          pip install black==24.10.0 --user
           black --check .
 
-      - name: Install pycparser and coverage (Python ${{ matrix.python-version }})
+      - name: Install Python dependencies (Python ${{ matrix.python-version }})
         run: |
           export PYENV_ROOT="$HOME/.pyenv"
           export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
 
           pip install --upgrade pip --user
-          pip install pycparser pycparser-fake-libc coverage --user
+          pip install -r requirements.txt --user
 
       - name: Run tests with coverage (Python ${{ matrix.python-version }})
         run: |

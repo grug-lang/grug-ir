@@ -126,7 +126,7 @@ assert.exit2:
 ## Running `tests.py`
 
 This requires you to have Clang and Clang's [FileCheck](https://llvm.org/docs/CommandGuide/FileCheck.html) installed:
-1. Run `pip install pycparser==2.21 pycparser-fake-libc==2.21 coverage==7.2.7`
+1. Run `pip install -r requirements.txt`
 2. Run `rm -f .coverage && python tests.py && coverage report -m --fail-under=100`
 
 ## Pre-commit hooks (recommended)
