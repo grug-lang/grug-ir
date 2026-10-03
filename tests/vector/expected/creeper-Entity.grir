@@ -1,0 +1,16 @@
+export tick()
+    t1: id = Vec()
+
+    t1.push(1)
+
+    t1.push(2)
+
+    t2: number = t1.get(0)
+
+    t3: bool = t2 == 1
+    assert(t3)
+
+    t4: number = t1.get(1)
+
+    t5: bool = t4 == 2
+    assert(t5)
